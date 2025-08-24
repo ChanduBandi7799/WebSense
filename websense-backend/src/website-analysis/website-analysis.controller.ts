@@ -1,32 +1,86 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param } from '@nestjs/common';
 import { WebsiteAnalysisService } from './website-analysis.service';
 
-@Controller('website-analysis')
+@Controller('analyze')
 export class WebsiteAnalysisController {
   constructor(private readonly service: WebsiteAnalysisService) {}
 
-  @Post('analyze')
-  async analyzeWebsite(@Body() data: { url: string }) {
+  @Post('lighthouse')
+  async analyzeLighthouse(@Body() data: { url: string }) {
     return this.service.runLighthouseAnalysis(data.url);
   }
-  
-  @Post('analyze-pagespeed')
-  async analyzeWebsiteWithPageSpeed(@Body() data: { url: string, apiKey?: string }) {
+
+  @Post('pagespeed')
+  async analyzePageSpeed(@Body() data: { url: string; apiKey?: string }) {
     return this.service.runPageSpeedAnalysis(data.url, data.apiKey);
   }
 
-  @Post('analyze-security')
-  async analyzeWebsiteSecurity(@Body() data: { url: string }) {
-    return this.service.runSecurityAnalysis(data.url);
+  @Get('test-psi')
+  async testPSI() {
+    // Test with a simple, reliable website
+    return this.service.runPageSpeedAnalysis('https://www.google.com');
   }
 
-  @Post('analyze-seo')
-  async analyzeWebsiteSEO(@Body() data: { url: string }) {
-    return this.service.runAdvancedSEOAnalysis(data.url);
+  @Get('test-lighthouse')
+  async testLighthouse() {
+    // Test with a simple, reliable website
+    return this.service.runLighthouseAnalysis('https://www.google.com');
   }
 
-  @Post('analyze-tech-stack')
-  async analyzeWebsiteTechStack(@Body() data: { url: string }) {
-    return this.service.runTechStackAnalysis(data.url);
+  @Get('test-website/:url')
+  async testWebsite(@Param('url') url: string) {
+    // Test if a website is accessible
+    try {
+      const https = require('https');
+      const urlToTest = url.startsWith('http') ? url : `https://${url}`;
+      
+      return new Promise((resolve, reject) => {
+        const req = https.get(urlToTest, (res) => {
+          resolve({
+            url: urlToTest,
+            statusCode: res.statusCode,
+            accessible: res.statusCode >= 200 && res.statusCode < 400,
+            message: `Website responded with status code: ${res.statusCode}`
+          });
+        });
+        
+        req.on('error', (error) => {
+          resolve({
+            url: urlToTest,
+            statusCode: null,
+            accessible: false,
+            message: `Website is not accessible: ${error.message}`
+          });
+        });
+        
+        req.setTimeout(10000, () => {
+          req.destroy();
+          resolve({
+            url: urlToTest,
+            statusCode: null,
+            accessible: false,
+            message: 'Website connection timed out after 10 seconds'
+          });
+        });
+      });
+    } catch (error) {
+      return {
+        url: url,
+        statusCode: null,
+        accessible: false,
+        message: `Error testing website: ${error.message}`
+      };
+    }
+  }
+
+  @Post('tech-stack')
+  async analyzeTechStack(@Body() data: { url: string }) {
+    return this.service.analyzeTechStack(data.url);
+  }
+
+  @Get('test-tech-stack')
+  async testTechStack() {
+    // Test with a simple, reliable website
+    return this.service.analyzeTechStack('https://www.google.com');
   }
 }

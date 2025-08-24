@@ -2,9 +2,16 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class DashboardService {
-  getInfo() {
+  getInfo(): string {
+    return 'Hello World!';
+  }
+
+  async getDashboardData() {
     return {
-      message: 'WebSense Dashboard working ✅',
+      totalAnalyses: 0,
+      recentAnalyses: [],
+      systemStatus: 'operational',
+      lastUpdated: new Date().toISOString()
     };
   }
 }

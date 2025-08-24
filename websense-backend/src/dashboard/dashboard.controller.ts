@@ -3,10 +3,10 @@ import { DashboardService } from './dashboard.service';
 
 @Controller('dashboard')
 export class DashboardController {
-  constructor(private readonly service: DashboardService) {}
+  constructor(private readonly dashboardService: DashboardService) {}
 
   @Get()
-  getDashboard() {
-    return this.service.getInfo();
+  async getDashboardData() {
+    return this.dashboardService.getDashboardData();
   }
 }

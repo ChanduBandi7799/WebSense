@@ -12,6 +12,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "start:with-env": "set PSI_API_KEY=AIzaSyD16688gvT2z1PLldcS4LVKu2Bhfa234kE && nest start --watch",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -29,7 +30,8 @@
     "lighthouse": "^12.8.1",
     "psi": "^4.1.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "wappalyzer": "^6.10.66"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { analyzeWebsite, analyzeWebsiteWithPageSpeed, analyzeSecurity, analyzeSEO, analyzeTechStack } from '../services/api';
+import { analyzeWebsite, analyzeWebsiteWithPageSpeed, testWebsiteAccessibility, analyzeTechStack } from '../services/api';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -9,95 +9,116 @@ const AddWebsite = () => {
   const [error, setError] = useState(null);
   const [report, setReport] = useState(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [activeTab, setActiveTab] = useState('performance');
+  const [activeTab, setActiveTab] = useState('lighthouse');
+  const [isTestingAccessibility, setIsTestingAccessibility] = useState(false);
+  const [accessibilityResult, setAccessibilityResult] = useState(null);
+  const [isAnalyzingTechStack, setIsAnalyzingTechStack] = useState(false);
+  const [techStackResult, setTechStackResult] = useState(null);
   const reportRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!url.trim()) {
+      setError('Please enter a valid URL');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
-    
+    setReport(null);
+
     try {
-      console.log(`Starting analysis for: ${url}`);
-      
-      // Call all API endpoints in parallel
-      const [performanceData, securityData, seoData, techStackData] = await Promise.allSettled([
-        analyzeWebsiteWithPageSpeed(url),
-        analyzeSecurity(url),
-        analyzeSEO(url),
-        analyzeTechStack(url)
+      // Run all three analyses in parallel
+      const [lighthouseResult, psiResult] = await Promise.all([
+        analyzeWebsite(url).catch(error => {
+          console.error('Lighthouse analysis failed:', error);
+          return { error: true, message: error.message };
+        }),
+        analyzeWebsiteWithPageSpeed(url).catch(error => {
+          console.error('PSI analysis failed:', error);
+          return { error: true, message: error.message };
+        })
       ]);
+
+      // Debug: Log the received data
+      console.log('Lighthouse result received:', lighthouseResult);
+      console.log('Lighthouse result keys:', Object.keys(lighthouseResult));
+      console.log('PSI result received:', psiResult);
+      console.log('PSI result keys:', Object.keys(psiResult));
+      console.log('PSI categories:', psiResult.categories);
+      console.log('PSI categories keys:', psiResult.categories ? Object.keys(psiResult.categories) : 'No categories');
       
-      // Handle performance data
-      let performanceResult = null;
-      if (performanceData.status === 'fulfilled' && !performanceData.value.error) {
-        performanceResult = performanceData.value;
-      } else {
-        console.error('Performance analysis failed:', 
-          performanceData.status === 'fulfilled' ? performanceData.value.errorMessage : performanceData.reason
-        );
-        setError(performanceData.status === 'fulfilled' 
-          ? performanceData.value.errorMessage 
-          : 'Performance analysis failed: ' + performanceData.reason?.message
-        );
-        setIsSubmitting(false);
-        return;
-      }
-      
-      // Handle security data
-      let securityResult = { checks: {} };
-      if (securityData.status === 'fulfilled' && !securityData.value.error) {
-        securityResult = securityData.value;
-      } else {
-        console.error('Security analysis failed:', 
-          securityData.status === 'fulfilled' ? securityData.value.errorMessage : securityData.reason
-        );
-        // Continue with empty security data instead of failing completely
-      }
-      
-      // Handle SEO data
-      let seoResult = { checks: {} };
-      if (seoData.status === 'fulfilled' && !seoData.value.error) {
-        seoResult = seoData.value;
-      } else {
-        console.error('SEO analysis failed:', 
-          seoData.status === 'fulfilled' ? seoData.value.errorMessage : seoData.reason
-        );
-        // Continue with empty SEO data instead of failing completely
-      }
-      
-      // Handle tech stack data
-      let techStackResult = { technologies: [] };
-      if (techStackData.status === 'fulfilled' && !techStackData.value.error) {
-        techStackResult = techStackData.value;
-      } else {
-        console.error('Tech stack analysis failed:', 
-          techStackData.status === 'fulfilled' ? techStackData.value.errorMessage : techStackData.reason
-        );
-        // Continue with empty tech stack data instead of failing completely
-      }
-      
-      // Combine all data into a single report object
+              // Debug screenshots
+        if (lighthouseResult.screenshots) {
+          console.log('Screenshots found in Lighthouse result:', lighthouseResult.screenshots.length);
+          console.log('All screenshots:', lighthouseResult.screenshots);
+          lighthouseResult.screenshots.forEach((screenshot, index) => {
+            console.log(`Screenshot ${index + 1}:`, {
+              id: screenshot.id,
+              description: screenshot.description,
+              phase: screenshot.phase,
+              timestamp: screenshot.timestamp,
+              dataLength: screenshot.data ? screenshot.data.length : 0
+            });
+          });
+        } else {
+          console.log('No screenshots found in Lighthouse result');
+        }
+
+      // Set the complete report
       setReport({
-        url: url,
-        performance: performanceResult.performance || {},
-        seo: {
-          ...performanceResult.seo || {},
-          advancedChecks: seoResult.checks || {}
-        },
-        accessibility: performanceResult.accessibility || {},
-        bestPractices: performanceResult.bestPractices || {},
-        technologies: techStackResult.technologies || [],
-        security: securityResult.checks || {},
-        suggestions: performanceResult.suggestions || []
+        url,
+        performance: lighthouseResult,
+        psi: psiResult
       });
-      
-      console.log('Analysis completed successfully');
+
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      setError(error.message);
+    } finally {
       setIsSubmitting(false);
-    } catch (err) {
-      console.error('Analysis failed with error:', err);
-      setError('Failed to analyze website. Please check the console for details and try again.');
-      setIsSubmitting(false);
+    }
+  };
+
+  const handleTestAccessibility = async () => {
+    if (!url.trim()) {
+      setError('Please enter a valid URL first');
+      return;
+    }
+
+    setIsTestingAccessibility(true);
+    setError(null);
+    setAccessibilityResult(null);
+
+    try {
+      const result = await testWebsiteAccessibility(url);
+      setAccessibilityResult(result);
+    } catch (error) {
+      console.error('Accessibility test failed:', error);
+      setError(error.message);
+    } finally {
+      setIsTestingAccessibility(false);
+    }
+  };
+
+  const handleAnalyzeTechStack = async () => {
+    if (!url.trim()) {
+      setError('Please enter a valid URL first');
+      return;
+    }
+
+    setIsAnalyzingTechStack(true);
+    setError(null);
+    setTechStackResult(null);
+
+    try {
+      const result = await analyzeTechStack(url);
+      setTechStackResult(result);
+    } catch (error) {
+      console.error('Tech stack analysis failed:', error);
+      setError(error.message);
+    } finally {
+      setIsAnalyzingTechStack(false);
     }
   };
 
@@ -147,25 +168,70 @@ const AddWebsite = () => {
       {!report ? (
         <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
           <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label htmlFor="url" className="block text-gray-700 font-medium mb-2">Website URL</label>
-              <input
-                type="url"
-                id="url"
-                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="https://example.com"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                required
-              />
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="url" className="block text-gray-700 font-medium mb-2">
+                  Website URL
+                </label>
+                <input
+                  type="url"
+                  id="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://example.com"
+                  required
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleTestAccessibility}
+                  disabled={isTestingAccessibility || !url.trim()}
+                  className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
+                >
+                  {isTestingAccessibility ? 'Testing...' : 'Test Accessibility'}
+                </button>
+                
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !url.trim()}
+                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Analyzing...' : 'Analyze Website'}
+                </button>
+              </div>
+              
+              {/* Accessibility Test Result */}
+              {accessibilityResult && (
+                <div className={`p-4 rounded-lg border ${
+                  accessibilityResult.accessible 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-red-50 border-red-200'
+                }`}>
+                  <h4 className={`font-medium mb-2 ${
+                    accessibilityResult.accessible ? 'text-green-800' : 'text-red-800'
+                  }`}>
+                    Website Accessibility Test Result
+                  </h4>
+                  <p className={`text-sm ${
+                    accessibilityResult.accessible ? 'text-green-700' : 'text-red-700'
+                  }`}>
+                    {accessibilityResult.message}
+                  </p>
+                  {accessibilityResult.statusCode && (
+                    <p className={`text-sm mt-1 ${
+                      accessibilityResult.accessible ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      Status Code: {accessibilityResult.statusCode}
+                    </p>
+                  )}
+                </div>
+              )}
+
+
             </div>
-            <button
-              type="submit"
-              className="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? 'Analyzing... (This may take a minute)' : 'Analyze Website'}
-            </button>
           </form>
           
           {error && (
@@ -184,56 +250,72 @@ const AddWebsite = () => {
               <p className="text-sm text-gray-600 mt-1">Generated on {new Date().toLocaleString()}</p>
             </div>
             
-            {/* Tab Navigation */}
-            <div className="border-b">
-              <nav className="flex">
+            {/* Tab Navigation - Lighthouse, Google PSI, and Tech Stack */}
+            <div className="border-b border-gray-200">
+              <nav className="-mb-px flex space-x-8">
                 <button
-                  onClick={() => setActiveTab('performance')}
-                  className={`px-4 py-3 font-medium ${activeTab === 'performance' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500'}`}
+                  onClick={() => setActiveTab('lighthouse')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'lighthouse'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
                 >
-                  Performance
+                  Lighthouse
                 </button>
                 <button
-                  onClick={() => setActiveTab('seo')}
-                  className={`px-4 py-3 font-medium ${activeTab === 'seo' ? 'border-b-2 border-green-500 text-green-600' : 'text-gray-500'}`}
+                  onClick={() => setActiveTab('psi')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'psi'
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
                 >
-                  SEO
+                  Google PSI
                 </button>
                 <button
-                  onClick={() => setActiveTab('security')}
-                  className={`px-4 py-3 font-medium ${activeTab === 'security' ? 'border-b-2 border-red-500 text-red-600' : 'text-gray-500'}`}
-                >
-                  Security
-                </button>
-                <button
-                  onClick={() => setActiveTab('tech')}
-                  className={`px-4 py-3 font-medium ${activeTab === 'tech' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500'}`}
+                  onClick={() => setActiveTab('techstack')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'techstack'
+                      ? 'border-purple-500 text-purple-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
                 >
                   Tech Stack
-                </button>
-                <button
-                  onClick={() => setActiveTab('accessibility')}
-                  className={`px-4 py-3 font-medium ${activeTab === 'accessibility' ? 'border-b-2 border-yellow-500 text-yellow-600' : 'text-gray-500'}`}
-                >
-                  Accessibility
                 </button>
               </nav>
             </div>
             
             <div className="p-6">
-              {/* Performance Tab */}
-              {activeTab === 'performance' && (
+              {/* Lighthouse Tab */}
+              {activeTab === 'lighthouse' && (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <ScoreCard title="Performance" score={report.performance.score || 0} color="blue" />
-                    <ScoreCard title="SEO" score={report.seo.score || 0} color="green" />
-                    <ScoreCard title="Accessibility" score={report.accessibility.score || 0} color="yellow" />
-                    <ScoreCard title="Best Practices" score={report.bestPractices.score || 0} color="purple" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    {report.performance.error ? (
+                      <div className="text-red-500">Performance Analysis Failed</div>
+                    ) : (
+                      <>
+                        {console.log('Rendering scores with data:', {
+                          performance: report.performance.categories?.performance || report.performance.score,
+                          accessibility: report.performance.categories?.accessibility,
+                          bestPractices: report.performance.categories?.['best-practices'],
+                          seo: report.performance.categories?.seo,
+                          pwa: report.performance.categories?.pwa
+                        })}
+                        <ScoreCard title="Performance" score={report.performance.categories?.performance || report.performance.score} color="blue" />
+                        <ScoreCard title="Accessibility" score={report.performance.categories?.accessibility} color="green" />
+                        <ScoreCard title="Best Practices" score={report.performance.categories?.['best-practices']} color="yellow" />
+                        <ScoreCard title="SEO" score={report.performance.categories?.seo} color="purple" />
+                        <ScoreCard title="PWA" score={report.performance.categories?.pwa} color="indigo" />
+                      </>
+                    )}
                   </div>
                   
-                  {report.performance.firstContentfulPaint && (
-                    <div className="mb-8">
-                      <h3 className="text-xl font-bold mb-4">Performance Metrics</h3>
+                  <div className="mb-8">
+                    <h3 className="text-xl font-bold mb-4">Performance Metrics</h3>
+                    {report.performance.error ? (
+                      <div className="text-red-500">Performance Analysis Failed</div>
+                    ) : report.performance.firstContentfulPaint ? (
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           <MetricItem label="First Contentful Paint" value={report.performance.firstContentfulPaint || 'N/A'} />
@@ -242,17 +324,56 @@ const AddWebsite = () => {
                           <MetricItem label="Time to Interactive" value={report.performance.timeToInteractive || 'N/A'} />
                           <MetricItem label="Total Blocking Time" value={report.performance.totalBlockingTime || 'N/A'} />
                           <MetricItem label="Cumulative Layout Shift" value={report.performance.cumulativeLayoutShift || 'N/A'} />
+                          <MetricItem label="Max Potential FID" value={report.performance.maxPotentialFID || 'N/A'} />
+                          <MetricItem label="Server Response Time" value={report.performance.serverResponseTime || 'N/A'} />
+                          <MetricItem label="Render Blocking Resources" value={report.performance.renderBlockingResources || 'N/A'} />
+                        </div>
+                      </div>
+                    ) : (
+                      <p>No performance metrics available.</p>
+                    )}
+                  </div>
+
+                  {/* Resource Analysis */}
+                  {report.performance.resources && (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4">Resource Analysis</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <MetricItem label="Total Requests" value={report.performance.resources.totalRequests || 'N/A'} />
+                          <MetricItem label="Total Size" value={report.performance.resources.totalSize || 'N/A'} />
+                          <MetricItem label="Images" value={report.performance.resources.imageCount || 'N/A'} />
+                          <MetricItem label="Scripts" value={report.performance.resources.scriptCount || 'N/A'} />
+                          <MetricItem label="Stylesheets" value={report.performance.resources.stylesheetCount || 'N/A'} />
+                          <MetricItem label="Fonts" value={report.performance.resources.fontCount || 'N/A'} />
                         </div>
                       </div>
                     </div>
                   )}
+
+                  {/* Additional Performance Metrics */}
+                  <div className="mb-8">
+                    <h3 className="text-xl font-bold mb-4">Optimization Opportunities</h3>
+                    {report.performance.error ? (
+                      <div className="text-red-500">Performance Analysis Failed</div>
+                    ) : (
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <MetricItem label="Unused CSS" value={report.performance.unusedCSS || 'N/A'} />
+                          <MetricItem label="Unused JavaScript" value={report.performance.unusedJavaScript || 'N/A'} />
+                          <MetricItem label="Modern Image Formats" value={report.performance.modernImageFormats || 'N/A'} />
+                          <MetricItem label="Image Optimization" value={report.performance.imageOptimization || 'N/A'} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   
-                  {report.suggestions && report.suggestions.length > 0 && (
+                  {report.performance.suggestions && report.performance.suggestions.length > 0 && (
                     <div className="mb-8">
                       <h3 className="text-xl font-bold mb-4">Performance Suggestions</h3>
                       <div className="bg-gray-50 p-4 rounded-lg">
                         <ul className="space-y-3">
-                          {report.suggestions.map((suggestion, index) => (
+                          {report.performance.suggestions.map((suggestion, index) => (
                             <li key={index} className="border-l-4 border-blue-500 pl-4 py-2">
                               <h4 className="font-medium">{suggestion.title || suggestion}</h4>
                               {suggestion.description && (
@@ -267,161 +388,478 @@ const AddWebsite = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Accessibility Issues */}
+                  {report.performance.accessibilityIssues && report.performance.accessibilityIssues.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4">Accessibility Issues</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <ul className="space-y-3">
+                          {report.performance.accessibilityIssues.map((issue, index) => (
+                            <li key={index} className="border-l-4 border-green-500 pl-4 py-2">
+                              <h4 className="font-medium">{issue.title}</h4>
+                              <p className="text-sm text-gray-600">{issue.description}</p>
+                              <p className="text-sm text-green-600 mt-1">Score: {issue.score}/100</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Best Practices Issues */}
+                  {report.performance.bestPracticesIssues && report.performance.bestPracticesIssues.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4">Best Practices Issues</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <ul className="space-y-3">
+                          {report.performance.bestPracticesIssues.map((issue, index) => (
+                            <li key={index} className="border-l-4 border-yellow-500 pl-4 py-2">
+                              <h4 className="font-medium">{issue.title}</h4>
+                              <p className="text-sm text-gray-600">{issue.description}</p>
+                              <p className="text-sm text-yellow-600 mt-1">Score: {issue.score}/100</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SEO Issues */}
+                  {report.performance.seoIssues && report.performance.seoIssues.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4">SEO Issues</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <ul className="space-y-3">
+                          {report.performance.seoIssues.map((issue, index) => (
+                            <li key={index} className="border-l-4 border-purple-500 pl-4 py-2">
+                              <h4 className="font-medium">{issue.title}</h4>
+                              <p className="text-sm text-gray-600">{issue.description}</p>
+                              <p className="text-sm text-purple-600 mt-1">Score: {issue.score}/100</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
                   
-                  {(!report.performance.firstContentfulPaint && (!report.suggestions || report.suggestions.length === 0)) && (
+                  {/* Screenshots - Loading Sequence */}
+                  {report.performance.screenshots && report.performance.screenshots.length > 0 ? (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4">Loading Sequence Screenshots</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600 mb-4">
+                          Visual loading sequence captured during Lighthouse analysis. Screenshots show the page loading progress over time.
+                        </p>
+                        
+                        {/* Loading Sequence Summary */}
+                        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <h4 className="font-medium text-blue-800 mb-2">Loading Sequence Information</h4>
+                          <div className="text-sm text-blue-700">
+                            <p>Total screenshots captured: {report.performance.screenshots.length}</p>
+                            {report.performance.screenshots.length === 1 ? (
+                              <>
+                                <p className="text-orange-700 font-medium mt-2">⚠️ Single Screenshot Mode</p>
+                                <p>Only one screenshot was captured. This might be because:</p>
+                                <ul className="ml-4 mt-1 list-disc">
+                                  <li>Website loads very quickly</li>
+                                  <li>Lighthouse captured only the final state</li>
+                                  <li>Progressive loading wasn't detected</li>
+                                </ul>
+                                <p className="mt-2">Screenshot shows: <strong>{report.performance.screenshots.map(s => s.phase).join(', ')}</strong> state</p>
+                              </>
+                            ) : (
+                              <>
+                                <p>Loading phases: {[...new Set(report.performance.screenshots.map(s => s.phase))].join(', ')}</p>
+                                <p>Time range: {((report.performance.screenshots[report.performance.screenshots.length - 1]?.timestamp || 0) / 1000).toFixed(1)}s</p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Timeline visualization for single screenshot */}
+                        {report.performance.screenshots.length === 1 && (
+                          <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg">
+                            <h4 className="font-medium text-gray-800 mb-3">Loading Timeline Context</h4>
+                            <div className="space-y-2">
+                              {report.performance.screenshots[0].timelineContext && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                  {report.performance.screenshots[0].timelineContext.firstContentfulPaint && (
+                                    <div className="bg-blue-50 p-2 rounded">
+                                      <div className="font-medium text-blue-800">First Contentful Paint</div>
+                                      <div className="text-blue-600">{(report.performance.screenshots[0].timelineContext.firstContentfulPaint / 1000).toFixed(2)}s</div>
+                                    </div>
+                                  )}
+                                  {report.performance.screenshots[0].timelineContext.largestContentfulPaint && (
+                                    <div className="bg-green-50 p-2 rounded">
+                                      <div className="font-medium text-green-800">Largest Contentful Paint</div>
+                                      <div className="text-green-600">{(report.performance.screenshots[0].timelineContext.largestContentfulPaint / 1000).toFixed(2)}s</div>
+                                    </div>
+                                  )}
+                                  {report.performance.screenshots[0].timelineContext.speedIndex && (
+                                    <div className="bg-yellow-50 p-2 rounded">
+                                      <div className="font-medium text-yellow-800">Speed Index</div>
+                                      <div className="text-yellow-600">{(report.performance.screenshots[0].timelineContext.speedIndex / 1000).toFixed(2)}s</div>
+                                    </div>
+                                  )}
+                                  {report.performance.screenshots[0].timelineContext.timeToInteractive && (
+                                    <div className="bg-purple-50 p-2 rounded">
+                                      <div className="font-medium text-purple-800">Time to Interactive</div>
+                                      <div className="text-purple-600">{(report.performance.screenshots[0].timelineContext.timeToInteractive / 1000).toFixed(2)}s</div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              <p className="text-sm text-gray-600 mt-2">
+                                📸 Screenshot captured at: <strong>{((report.performance.screenshots[0].timestamp || 0) / 1000).toFixed(2)}s</strong>
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {report.performance.screenshots.map((screenshot, index) => {
+                            // Debug the screenshot data
+                            console.log(`Screenshot ${index + 1}:`, {
+                              id: screenshot.id,
+                              dataLength: screenshot.data ? screenshot.data.length : 0,
+                              dataPreview: screenshot.data ? screenshot.data.substring(0, 50) + '...' : 'No data',
+                              width: screenshot.width,
+                              height: screenshot.height
+                            });
+                            
+                            // Validate base64 data
+                            const isValidBase64 = screenshot.data && 
+                              typeof screenshot.data === 'string' && 
+                              screenshot.data.length > 0 &&
+                              /^[A-Za-z0-9+/]*={0,2}$/.test(screenshot.data);
+                            
+                            // Try to detect image format from base64 data
+                            let detectedFormat = 'png'; // default
+                            if (screenshot.data) {
+                              try {
+                                const binaryString = atob(screenshot.data.substring(0, 20));
+                                const bytes = new Uint8Array(binaryString.length);
+                                for (let i = 0; i < binaryString.length; i++) {
+                                  bytes[i] = binaryString.charCodeAt(i);
+                                }
+                                
+                                // Check PNG signature
+                                if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+                                  detectedFormat = 'png';
+                                }
+                                // Check JPEG signature
+                                else if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+                                  detectedFormat = 'jpeg';
+                                }
+                                // Check WebP signature
+                                else if (bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+                                  detectedFormat = 'webp';
+                                }
+                              } catch (e) {
+                                console.log('Could not detect image format, using PNG as default');
+                              }
+                            }
+                            
+                            console.log(`Screenshot ${index + 1}:`, {
+                              base64Valid: isValidBase64,
+                              detectedFormat: detectedFormat,
+                              dataLength: screenshot.data ? screenshot.data.length : 0
+                            });
+                            
+                            // Get phase color
+                            const getPhaseColor = (phase) => {
+                              switch (phase) {
+                                case 'initial': return 'bg-red-100 border-red-300 text-red-800';
+                                case 'early': return 'bg-orange-100 border-orange-300 text-orange-800';
+                                case 'loading': return 'bg-yellow-100 border-yellow-300 text-yellow-800';
+                                case 'late': return 'bg-blue-100 border-blue-300 text-blue-800';
+                                case 'complete': return 'bg-green-100 border-green-300 text-green-800';
+                                default: return 'bg-gray-100 border-gray-300 text-gray-800';
+                              }
+                            };
+                            
+                            const seconds = (screenshot.timestamp / 1000).toFixed(1);
+                            
+                            return (
+                              <div key={screenshot.id} className="bg-white rounded-lg border overflow-hidden">
+                                <div className="p-3 bg-gray-100 border-b">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <h4 className="font-medium text-sm text-gray-800">
+                                      {screenshot.description}
+                                    </h4>
+                                    <span className={`text-xs px-2 py-1 rounded-full border ${getPhaseColor(screenshot.phase)}`}>
+                                      {screenshot.phase}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-500">
+                                    {screenshot.width} × {screenshot.height} • {seconds}s
+                                  </p>
+                                  <p className="text-xs text-gray-400">
+                                    Data length: {screenshot.data ? screenshot.data.length : 0} chars
+                                  </p>
+                                  <p className={`text-xs ${isValidBase64 ? 'text-green-600' : 'text-red-600'}`}>
+                                    Base64 valid: {isValidBase64 ? 'Yes' : 'No'}
+                                  </p>
+                                  <p className="text-xs text-blue-600">
+                                    Detected format: {detectedFormat.toUpperCase()}
+                                  </p>
+                                </div>
+                                <div className="p-2">
+                                  {screenshot.data && screenshot.data.length > 0 ? (
+                                    <>
+                                      {/* Try detected format first */}
+                                      <img 
+                                        src={`data:image/${detectedFormat};base64,${screenshot.data}`}
+                                        alt={`Screenshot ${index + 1} (${detectedFormat.toUpperCase()})`}
+                                        className="w-full h-auto rounded border"
+                                        style={{ maxHeight: '200px', objectFit: 'contain' }}
+                                        onError={(e) => {
+                                          console.log(`${detectedFormat.toUpperCase()} format failed, trying other formats...`);
+                                          // Hide detected format image and show fallback
+                                          e.target.style.display = 'none';
+                                          const fallbackImg = e.target.nextElementSibling;
+                                          if (fallbackImg) fallbackImg.style.display = 'block';
+                                        }}
+                                        onLoad={() => {
+                                          console.log(`Successfully loaded screenshot ${index + 1} as ${detectedFormat.toUpperCase()}`);
+                                        }}
+                                      />
+                                      {/* Try JPEG as fallback */}
+                                      <img 
+                                        src={`data:image/jpeg;base64,${screenshot.data}`}
+                                        alt={`Screenshot ${index + 1} (JPEG)`}
+                                        className="w-full h-auto rounded border"
+                                        style={{ maxHeight: '200px', objectFit: 'contain', display: 'none' }}
+                                        onError={(e) => {
+                                          console.log('JPEG format also failed, trying WebP...');
+                                          // Hide JPEG image and show WebP fallback
+                                          e.target.style.display = 'none';
+                                          const webpImg = e.target.nextElementSibling;
+                                          if (webpImg) webpImg.style.display = 'block';
+                                        }}
+                                        onLoad={() => {
+                                          console.log(`Successfully loaded screenshot ${index + 1} as JPEG`);
+                                        }}
+                                      />
+                                      {/* Try WebP as final fallback */}
+                                      <img 
+                                        src={`data:image/webp;base64,${screenshot.data}`}
+                                        alt={`Screenshot ${index + 1} (WebP)`}
+                                        className="w-full h-auto rounded border"
+                                        style={{ maxHeight: '200px', objectFit: 'contain', display: 'none' }}
+                                        onError={(e) => {
+                                          console.error('All image formats failed for screenshot:', screenshot.id);
+                                          console.error('Base64 data preview:', screenshot.data ? screenshot.data.substring(0, 100) : 'No data');
+                                          // Hide WebP image and show error fallback
+                                          e.target.style.display = 'none';
+                                          const errorDiv = e.target.parentElement.querySelector('.error-fallback');
+                                          if (errorDiv) errorDiv.style.display = 'block';
+                                        }}
+                                        onLoad={() => {
+                                          console.log(`Successfully loaded screenshot ${index + 1} as WebP`);
+                                        }}
+                                      />
+                                    </>
+                                  ) : (
+                                    <div className="w-full h-32 bg-red-50 border border-red-200 rounded flex items-center justify-center text-red-500 text-sm">
+                                      <div className="text-center">
+                                        <div className="text-2xl mb-1">❌</div>
+                                        <div>No Image Data</div>
+                                        <div className="text-xs text-red-400 mt-1">
+                                          Screenshot data is empty
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div 
+                                    className="error-fallback w-full h-32 bg-gray-100 rounded border flex items-center justify-center text-gray-500 text-sm"
+                                    style={{ display: 'none' }}
+                                  >
+                                    <div className="text-center">
+                                      <div className="text-2xl mb-1">🖼️</div>
+                                      <div>Screenshot {index + 1}</div>
+                                      <div className="text-xs text-gray-400">
+                                        {screenshot.width} × {screenshot.height}
+                                      </div>
+                                      <div className="text-xs text-red-400 mt-1">
+                                        All image formats failed
+                                      </div>
+                                      <div className="text-xs text-blue-400 mt-1">
+                                        {!isValidBase64 ? 'Invalid base64 format' : 'Valid base64, unknown format'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4">Loading Sequence Screenshots</h3>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <p className="text-sm text-gray-600">
+                          No screenshots were captured during this Lighthouse analysis. This may be due to:
+                        </p>
+                        <ul className="text-sm text-gray-600 mt-2 list-disc list-inside">
+                          <li>Website loading too quickly</li>
+                          <li>Screenshot capture disabled</li>
+                          <li>Browser compatibility issues</li>
+                          <li>Analysis completed before screenshots could be captured</li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {(!report.performance.firstContentfulPaint && (!report.performance.suggestions || report.performance.suggestions.length === 0)) && (
                     <div className="text-center text-gray-500 py-8">
                       <p>Performance metrics could not be retrieved. This may be due to:</p>
                       <ul className="mt-2 text-sm">
-                        <li>• Website is not accessible</li>
-                        <li>• API rate limits exceeded</li>
+                        <li>• Website is not accessible or down</li>
+                        <li>• Chrome security restrictions (interstitial error)</li>
                         <li>• Network connectivity issues</li>
+                        <li>• Website is blocking automated analysis</li>
+                        <li>• Invalid or redirecting URL</li>
                       </ul>
+                      {report.performance.message && (
+                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-red-700 text-sm font-medium">Error Details:</p>
+                          <p className="text-red-600 text-sm">{report.performance.message}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
               )}
               
-              {/* SEO Tab */}
-              {activeTab === 'seo' && (
+              {/* Google PSI Tab */}
+              {activeTab === 'psi' && (
                 <>
-                  <div className="mb-8">
-                    <h3 className="text-xl font-bold mb-4">SEO Score</h3>
-                    <div className="w-64">
-                      <ScoreCard title="SEO" score={report.seo.score || 0} color="green" />
-                    </div>
-                  </div>
-                  
-                  {report.seo.issues && report.seo.issues.length > 0 && (
-                    <div className="mb-8">
-                      <h3 className="text-xl font-bold mb-4">Basic SEO Issues</h3>
-                      <IssuesList title="SEO Issues" issues={report.seo.issues} />
-                    </div>
-                  )}
-                  
-                  {report.seo.advancedChecks && Object.keys(report.seo.advancedChecks).length > 0 && (
-                    <div className="mb-8">
-                      <h3 className="text-xl font-bold mb-4">Advanced SEO Analysis</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {Object.entries(report.seo.advancedChecks).map(([key, value]) => (
-                          <div key={key} className="border rounded-lg p-4">
-                            <div className="flex items-center">
-                              {value.status === 'pass' ? (
-                                <span className="text-green-500 mr-2">✓</span>
-                              ) : value.status === 'warn' ? (
-                                <span className="text-yellow-500 mr-2">⚠️</span>
-                              ) : (
-                                <span className="text-red-500 mr-2">✗</span>
-                              )}
-                              <h4 className="font-medium">{value.title}</h4>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-1">{value.description}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {(!report.seo.issues || report.seo.issues.length === 0) && 
-                   (!report.seo.advancedChecks || Object.keys(report.seo.advancedChecks).length === 0) && (
-                    <div className="text-center text-gray-500 py-8">
-                      <p>SEO analysis could not be completed.</p>
-                      <p className="text-sm mt-2">Please check the console for error details.</p>
-                    </div>
-                  )}
-                </>
-              )}
-              
-              {/* Security Tab */}
-              {activeTab === 'security' && (
-                <>
-                  <div className="mb-8">
-                    <h3 className="text-xl font-bold mb-4">Security Analysis</h3>
-                    {report.security && Object.keys(report.security).length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {Object.entries(report.security).map(([key, value]) => (
-                          <div key={key} className="border rounded-lg p-4">
-                            <div className="flex items-center">
-                              {value.status === 'secure' ? (
-                                <span className="text-green-500 mr-2">✓</span>
-                              ) : value.status === 'warning' ? (
-                                <span className="text-yellow-500 mr-2">⚠️</span>
-                              ) : (
-                                <span className="text-red-500 mr-2">✗</span>
-                              )}
-                              <h4 className="font-medium">{value.title}</h4>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-1">{value.description}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center text-gray-500 py-8">
-                        <p>Security analysis could not be completed.</p>
-                        <p className="text-sm mt-2">Please check the console for error details.</p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-              
-              {/* Tech Stack Tab */}
-              {activeTab === 'tech' && (
-                <>
-                  <div className="mb-8">
-                    <h3 className="text-xl font-bold mb-4">Technologies Detected</h3>
-                    {report.technologies && report.technologies.length > 0 ? (
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {report.technologies.map((tech, index) => (
-                          <div key={index} className="border rounded-lg p-4 flex items-center">
-                            {tech.icon && (
-                              <img 
-                                src={tech.icon} 
-                                alt={tech.name} 
-                                className="w-8 h-8 mr-3"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                }}
-                              />
-                            )}
-                            <div>
-                              <span className="font-medium">{tech.name || tech}</span>
-                              {tech.version && (
-                                <p className="text-xs text-gray-500">{tech.version}</p>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center text-gray-500 py-8">
-                        <p>No technologies could be detected.</p>
-                        <p className="text-sm mt-2">Please check the console for error details.</p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-              
-              {/* Accessibility Tab */}
-              {activeTab === 'accessibility' && (
-                <>
-                  <div className="mb-8">
-                    <h3 className="text-xl font-bold mb-4">Accessibility Score</h3>
-                    <div className="w-64">
-                      <ScoreCard title="Accessibility" score={report.accessibility.score || 0} color="yellow" />
-                    </div>
-                  </div>
-                  
-                  {report.accessibility.issues && report.accessibility.issues.length > 0 ? (
-                    <div className="mb-8">
-                      <h3 className="text-xl font-bold mb-4">Accessibility Issues</h3>
-                      <IssuesList title="Accessibility Issues" issues={report.accessibility.issues} />
+                  {report.psi?.error ? (
+                    <div className="text-center text-red-500 py-8">
+                      <p>Google PSI Analysis Failed</p>
+                      <p className="text-sm mt-2">{report.psi.message}</p>
                     </div>
                   ) : (
-                    <div className="text-center text-gray-500 py-8">
-                      <p>Accessibility analysis could not be completed.</p>
-                      <p className="text-sm mt-2">Please check the console for error details.</p>
-                    </div>
+                    <>
+                      {/* PSI Information */}
+                      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 className="text-blue-800 font-medium mb-2">Google PageSpeed Insights</h4>
+                        <p className="text-blue-700 text-sm">
+                          PSI provides Google's official performance metrics and optimization suggestions. 
+                          For comprehensive category analysis (Accessibility, Best Practices, SEO, PWA), use the Lighthouse tab.
+                        </p>
+                      </div>
+                      
+                      {/* Category Scores - Only show available categories */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                        {/* Performance is always available */}
+                        <ScoreCard title="Performance" score={report.psi.categories?.performance || report.psi.score} color="blue" />
+                        
+                        {/* Only show other categories if they exist */}
+                        {report.psi.categories?.accessibility && (
+                          <ScoreCard title="Accessibility" score={report.psi.categories.accessibility} color="green" />
+                        )}
+                        
+                        {report.psi.categories?.['best-practices'] && (
+                          <ScoreCard title="Best Practices" score={report.psi.categories['best-practices']} color="yellow" />
+                        )}
+                        
+                        {report.psi.categories?.seo && (
+                          <ScoreCard title="SEO" score={report.psi.categories.seo} color="purple" />
+                        )}
+                        
+                        {report.psi.categories?.pwa && (
+                          <ScoreCard title="PWA" score={report.psi.categories.pwa} color="indigo" />
+                        )}
+                      </div>
+                      
+                      {/* Category Availability Notice - Only show if some categories are missing */}
+                      {Object.keys(report.psi.categories || {}).length < 5 && (
+                        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <h4 className="text-blue-800 font-medium mb-2">PSI Analysis Information</h4>
+                          <p className="text-blue-700 text-sm">
+                            Google PageSpeed Insights focuses on performance analysis. Some categories (Accessibility, Best Practices, SEO, PWA) may not be available for all websites. 
+                            For comprehensive category analysis, use the Lighthouse tab.
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="mb-8">
+                        <h3 className="text-xl font-bold mb-4">Performance Metrics</h3>
+                        {report.psi.firstContentfulPaint ? (
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              <MetricItem label="First Contentful Paint" value={report.psi.firstContentfulPaint || 'N/A'} />
+                              <MetricItem label="Speed Index" value={report.psi.speedIndex || 'N/A'} />
+                              <MetricItem label="Largest Contentful Paint" value={report.psi.largestContentfulPaint || 'N/A'} />
+                              <MetricItem label="Time to Interactive" value={report.psi.timeToInteractive || 'N/A'} />
+                              <MetricItem label="Total Blocking Time" value={report.psi.totalBlockingTime || 'N/A'} />
+                              <MetricItem label="Cumulative Layout Shift" value={report.psi.cumulativeLayoutShift || 'N/A'} />
+                              <MetricItem label="Max Potential FID" value={report.psi.maxPotentialFID || 'N/A'} />
+                              <MetricItem label="Server Response Time" value={report.psi.serverResponseTime || 'N/A'} />
+                              <MetricItem label="Render Blocking Resources" value={report.psi.renderBlockingResources || 'N/A'} />
+                            </div>
+                          </div>
+                        ) : (
+                          <p>No performance metrics available.</p>
+                        )}
+                      </div>
+                      
+                      {/* Resource Analysis */}
+                      {report.psi.resources && (
+                        <div className="mb-8">
+                          <h3 className="text-xl font-bold mb-4">Resource Analysis</h3>
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              <MetricItem label="Total Requests" value={report.psi.resources.totalRequests || 'N/A'} />
+                              <MetricItem label="Total Size" value={report.psi.resources.totalSize || 'N/A'} />
+                              <MetricItem label="Images" value={report.psi.resources.imageCount || 'N/A'} />
+                              <MetricItem label="Scripts" value={report.psi.resources.scriptCount || 'N/A'} />
+                              <MetricItem label="Stylesheets" value={report.psi.resources.stylesheetCount || 'N/A'} />
+                              <MetricItem label="Fonts" value={report.psi.resources.fontCount || 'N/A'} />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Performance Suggestions */}
+                      {report.psi.suggestions && report.psi.suggestions.length > 0 && (
+                        <div className="mb-8">
+                          <h3 className="text-xl font-bold mb-4">Performance Suggestions</h3>
+                          <div className="bg-gray-50 p-4 rounded-lg">
+                            <ul className="space-y-3">
+                              {report.psi.suggestions.map((suggestion, index) => (
+                                <li key={index} className="border-l-4 border-green-500 pl-4 py-2">
+                                  <h4 className="font-medium">{suggestion.title || suggestion}</h4>
+                                  {suggestion.description && (
+                                    <p className="text-sm text-gray-600">{suggestion.description}</p>
+                                  )}
+                                  {suggestion.savings && (
+                                    <p className="text-sm text-green-600 mt-1">Potential savings: {suggestion.savings}</p>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {(!report.psi.firstContentfulPaint && (!report.psi.suggestions || report.psi.suggestions.length === 0)) && (
+                        <div className="text-center text-gray-500 py-8">
+                          <p>PSI analysis could not be completed. This may be due to:</p>
+                          <ul className="mt-2 text-sm">
+                            <li>• Website is not accessible</li>
+                            <li>• API rate limits exceeded</li>
+                            <li>• Network connectivity issues</li>
+                            <li>• Invalid API key</li>
+                          </ul>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -465,6 +903,65 @@ const AddWebsite = () => {
           </div>
         </div>
       )}
+      
+      {/* Tech Stack Tab */}
+      {activeTab === 'techstack' && (
+        <>
+          <div className="mb-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <h4 className="text-purple-800 font-medium mb-2">Tech Stack Analysis</h4>
+            <p className="text-purple-700 text-sm">
+              Analyze the technology stack of any website using Wappalyzer. This will detect frameworks, 
+              libraries, CMS platforms, hosting providers, and more.
+            </p>
+          </div>
+          
+          {!techStackResult ? (
+            <div className="text-center py-8">
+              <div className="mb-4">
+                <svg className="mx-auto h-12 w-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to Analyze Tech Stack</h3>
+              <p className="text-gray-500 mb-4">
+                Click the "Tech Stack" button above to analyze the technology stack of this website.
+              </p>
+              <button
+                onClick={handleAnalyzeTechStack}
+                disabled={isAnalyzingTechStack || !url.trim()}
+                className="px-6 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+              >
+                {isAnalyzingTechStack ? 'Analyzing...' : 'Analyze Tech Stack'}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {techStackResult.success ? (
+                <TechStackDisplay data={techStackResult} />
+              ) : (
+                <div className="text-center py-8">
+                  <div className="mb-4">
+                    <svg className="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Analysis Failed</h3>
+                  <p className="text-gray-500 mb-4">
+                    {techStackResult.message}
+                  </p>
+                  <button
+                    onClick={handleAnalyzeTechStack}
+                    disabled={isAnalyzingTechStack}
+                    className="px-6 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+                  >
+                    {isAnalyzingTechStack ? 'Analyzing...' : 'Try Again'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
@@ -483,16 +980,19 @@ const ScoreCard = ({ title, score, color }) => {
   };
   
   const getScoreColor = () => {
+    if (score === null || score === undefined) return 'text-gray-500';
     if (score >= 90) return 'text-green-600';
     if (score >= 70) return 'text-yellow-600';
     return 'text-red-600';
   };
   
+  const displayScore = score !== null && score !== undefined ? `${score}/100` : 'N/A';
+  
   return (
     <div className={`border rounded-lg p-4 ${getColorClass()}`}>
       <h3 className="text-lg font-medium">{title}</h3>
       <div className={`text-3xl font-bold mt-2 ${getScoreColor()}`}>
-        {score || 0}/100
+        {displayScore}
       </div>
     </div>
   );
@@ -505,19 +1005,126 @@ const MetricItem = ({ label, value }) => (
   </div>
 );
 
-const IssuesList = ({ title, issues }) => (
-  <div className="border rounded-lg p-4">
-    <h3 className="text-lg font-medium mb-3">{title}</h3>
-    <ul className="list-disc pl-5 space-y-1">
-      {issues && issues.length > 0 ? (
-        issues.map((issue, index) => (
-          <li key={index} className="text-gray-700">{issue}</li>
-        ))
-      ) : (
-        <li className="text-gray-500">No issues found</li>
+// Tech Stack Display Component
+const TechStackDisplay = ({ data }) => {
+  const renderTechList = (techs, title, color = 'blue') => {
+    if (!techs || techs.length === 0) return null;
+    
+    const colorClasses = {
+      blue: 'bg-blue-50 border-blue-200 text-blue-800',
+      green: 'bg-green-50 border-green-200 text-green-800',
+      purple: 'bg-purple-50 border-purple-200 text-purple-800',
+      orange: 'bg-orange-50 border-orange-200 text-orange-800',
+      red: 'bg-red-50 border-red-200 text-red-800',
+      yellow: 'bg-yellow-50 border-yellow-200 text-yellow-800'
+    };
+
+    return (
+      <div className={`p-3 rounded-lg border ${colorClasses[color]} mb-3`}>
+        <h5 className="font-medium mb-2">{title}</h5>
+        <div className="space-y-1">
+          {techs.map((tech, index) => (
+            <div key={index} className="flex justify-between items-center text-sm">
+              <span className="font-medium">{tech.name}</span>
+              <div className="flex items-center space-x-2">
+                {tech.version && tech.version !== 'Unknown' && (
+                  <span className="text-xs bg-white bg-opacity-50 px-2 py-1 rounded">
+                    v{tech.version}
+                  </span>
+                )}
+                <span className="text-xs bg-white bg-opacity-50 px-2 py-1 rounded">
+                  {tech.confidence}%
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Tech Stack */}
+      {data.techStack && (
+        <div>
+          <h5 className="font-medium text-gray-800 mb-2">Technology Stack</h5>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {renderTechList(data.techStack.frontend, 'Frontend', 'blue')}
+            {renderTechList(data.techStack.backend, 'Backend', 'green')}
+            {renderTechList(data.techStack.databases, 'Databases', 'purple')}
+            {renderTechList(data.techStack.programmingLanguages, 'Programming Languages', 'orange')}
+            {renderTechList(data.techStack.frameworks, 'Frameworks', 'red')}
+            {renderTechList(data.techStack.libraries, 'Libraries', 'yellow')}
+          </div>
+        </div>
       )}
-    </ul>
-  </div>
-);
+
+      {/* CMS */}
+      {renderTechList(data.cms, 'Content Management Systems', 'green')}
+
+      {/* E-commerce */}
+      {renderTechList(data.ecommerce, 'E-commerce Platforms', 'purple')}
+
+      {/* Analytics */}
+      {renderTechList(data.analytics, 'Analytics & Tracking', 'blue')}
+
+      {/* DevOps */}
+      {data.devops && (
+        <div>
+          <h5 className="font-medium text-gray-800 mb-2">DevOps & Infrastructure</h5>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {renderTechList(data.devops.webServers, 'Web Servers', 'blue')}
+            {renderTechList(data.devops.cdn, 'CDN', 'green')}
+            {renderTechList(data.devops.hosting, 'Hosting', 'purple')}
+            {renderTechList(data.devops.cloudServices, 'Cloud Services', 'orange')}
+          </div>
+        </div>
+      )}
+
+      {/* Security */}
+      {renderTechList(data.security, 'Security Tools', 'red')}
+
+      {/* Competitor Analysis */}
+      {data.competitor && (
+        <div>
+          <h5 className="font-medium text-gray-800 mb-2">Competitor Insights</h5>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {renderTechList(data.competitor.paymentProcessors, 'Payment Processors', 'green')}
+            {renderTechList(data.competitor.advertisingNetworks, 'Advertising Networks', 'purple')}
+            {renderTechList(data.competitor.abTesting, 'A/B Testing Tools', 'blue')}
+          </div>
+        </div>
+      )}
+
+      {/* Summary */}
+      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+        <h5 className="font-medium text-gray-800 mb-2">Analysis Summary</h5>
+        <div className="text-sm text-gray-600">
+          <p>Analysis completed at: {new Date(data.timestamp).toLocaleString()}</p>
+          <p>Total technologies detected: {
+            (data.techStack?.frontend?.length || 0) +
+            (data.techStack?.backend?.length || 0) +
+            (data.techStack?.databases?.length || 0) +
+            (data.techStack?.programmingLanguages?.length || 0) +
+            (data.techStack?.frameworks?.length || 0) +
+            (data.techStack?.libraries?.length || 0) +
+            (data.cms?.length || 0) +
+            (data.ecommerce?.length || 0) +
+            (data.analytics?.length || 0) +
+            (data.devops?.webServers?.length || 0) +
+            (data.devops?.cdn?.length || 0) +
+            (data.devops?.hosting?.length || 0) +
+            (data.devops?.cloudServices?.length || 0) +
+            (data.security?.length || 0) +
+            (data.competitor?.paymentProcessors?.length || 0) +
+            (data.competitor?.advertisingNetworks?.length || 0) +
+            (data.competitor?.abTesting?.length || 0)
+          }</p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default AddWebsite;

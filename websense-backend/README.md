@@ -1,98 +1,167 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# WebSense Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A comprehensive website performance analysis backend that integrates multiple testing tools:
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- **Lighthouse**: Comprehensive performance, accessibility, best practices, SEO, and PWA analysis with loading sequence screenshots
+- **Google PageSpeed Insights**: Official Google performance metrics
 
-## Description
+## Setup
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
+### 1. Install Dependencies
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+### 2. Environment Variables
+Create a `.env` file in the root directory:
 
-```bash
-# development
-$ npm run start
+```env
+# Server Configuration
+PORT=3001
+FRONTEND_URL=http://localhost:3000
 
-# watch mode
-$ npm run start:dev
+# API Keys
+PSI_API_KEY=your_google_pagespeed_insights_api_key
 
-# production mode
-$ npm run start:prod
+# Lighthouse Configuration
+LIGHTHOUSE_TIMEOUT=60000
 ```
 
-## Run tests
+### 3. API Keys Setup
 
+#### Google PageSpeed Insights API Key
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Enable the PageSpeed Insights API
+4. Create credentials (API Key)
+5. Add the API key to your `.env` file
+
+## Running the Application
+
+### Development Mode
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run start:dev
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+### Production Mode
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run build
+npm run start
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## API Endpoints
 
-## Resources
+### Lighthouse Analysis
+```
+POST /api/analyze/lighthouse
+Body: { "url": "https://example.com" }
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+### PageSpeed Insights Analysis
+```
+POST /api/analyze/pagespeed
+Body: { "url": "https://example.com", "apiKey": "optional" }
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Test Endpoints
+```
+GET /api/analyze/test-lighthouse
+GET /api/analyze/test-psi
+```
 
-## Support
+## Features
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### Lighthouse Analysis
+- Performance metrics (FCP, LCP, TTI, TBT, CLS)
+- Accessibility scoring
+- Best practices evaluation
+- SEO optimization
+- PWA assessment
+- Resource analysis
+- Performance suggestions
+- **Loading sequence screenshots** - Visual loading progress over time
 
-## Stay in touch
+### PageSpeed Insights
+- Google's official performance metrics
+- Core Web Vitals
+- Performance optimization suggestions
+- Mobile and desktop analysis
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Data Structure
+
+### Lighthouse Response with Screenshots
+```json
+{
+  "url": "https://example.com",
+  "score": 85,
+  "categories": {
+    "performance": 85,
+    "accessibility": 92,
+    "best-practices": 78,
+    "seo": 95,
+    "pwa": 45
+  },
+  "screenshots": [
+    {
+      "id": 0,
+      "timestamp": 0,
+      "data": "base64_encoded_image_data",
+      "width": 1200,
+      "height": 800,
+      "description": "Screenshot at 0ms"
+    },
+    {
+      "id": 1,
+      "timestamp": 1000,
+      "data": "base64_encoded_image_data",
+      "width": 1200,
+      "height": 800,
+      "description": "Screenshot at 1000ms"
+    }
+  ],
+  "firstContentfulPaint": "1.2s",
+  "largestContentfulPaint": "2.1s",
+  "timeToInteractive": "3.5s",
+  "totalBlockingTime": "150ms",
+  "cumulativeLayoutShift": "0.05"
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Lighthouse CLI not found**
+   ```bash
+   npm install -g lighthouse
+   ```
+
+2. **PSI API rate limit exceeded**
+   - Check your API key quota
+   - Wait before making more requests
+
+3. **Screenshots not appearing**
+   - Ensure Lighthouse is installed globally
+   - Check that the website is accessible
+   - Verify Chrome/Chromium is installed
+
+4. **CORS issues**
+   - Ensure frontend URL is correctly set in `.env`
+   - Check that frontend is running on the specified port
+
+### Performance Tips
+
+- **Lighthouse**: Best for comprehensive analysis with visual loading sequence
+- **PSI**: Best for Google's official metrics, has API limits
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+MIT License - see LICENSE file for details
