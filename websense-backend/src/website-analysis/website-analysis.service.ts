@@ -1296,4 +1296,783 @@ export class WebsiteAnalysisService {
     ];
     return abTestingKeywords.some(keyword => name.includes(keyword) || category.includes(keyword));
   }
+
+  // Security Headers Analysis
+  async analyzeSecurityHeaders(url: string) {
+    try {
+      console.log(`Starting security headers analysis for: ${url}`);
+      
+      // Validate URL
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+
+      // Make HTTP request to get headers
+      const headers = await this.getSecurityHeaders(url);
+      
+      console.log('Security headers analysis completed');
+      
+      return {
+        url: url,
+        success: true,
+        timestamp: new Date().toISOString(),
+        ...headers as any
+      };
+      
+    } catch (error) {
+      console.error('Security headers analysis error:', error);
+      return {
+        url: url,
+        success: false,
+        error: true,
+        message: `Failed to analyze security headers: ${error.message}`,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  // Get security headers from website
+  private async getSecurityHeaders(url: string) {
+    return new Promise((resolve, reject) => {
+      const https = require('https');
+      const http = require('http');
+      
+      const isHttps = url.startsWith('https://');
+      const client = isHttps ? https : http;
+      
+      const timeout = setTimeout(() => {
+        reject(new Error('Request timeout after 10 seconds'));
+      }, 10000);
+
+      const req = client.get(url, (res) => {
+        clearTimeout(timeout);
+        
+        const headers = res.headers;
+        const securityAnalysis = this.analyzeSecurityHeadersData(headers, isHttps);
+        
+        resolve(securityAnalysis);
+      });
+      
+      req.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+      
+      req.setTimeout(10000, () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+    });
+  }
+
+  // Analyze security headers data
+  private analyzeSecurityHeadersData(headers: any, isHttps: boolean) {
+    const analysis = {
+      https: {
+        enabled: isHttps,
+        status: isHttps ? 'Secure' : 'Insecure',
+        description: isHttps ? 'Website uses HTTPS encryption' : 'Website uses unencrypted HTTP'
+      },
+      hsts: {
+        present: false,
+        value: null,
+        status: 'Missing',
+        description: 'Strict-Transport-Security header not found',
+        recommendation: 'Add HSTS header to prevent downgrade attacks'
+      },
+      csp: {
+        present: false,
+        value: null,
+        status: 'Missing',
+        description: 'Content-Security-Policy header not found',
+        recommendation: 'Add CSP header to prevent XSS attacks'
+      },
+      xFrameOptions: {
+        present: false,
+        value: null,
+        status: 'Missing',
+        description: 'X-Frame-Options header not found',
+        recommendation: 'Add X-Frame-Options to prevent clickjacking'
+      },
+      xContentTypeOptions: {
+        present: false,
+        value: null,
+        status: 'Missing',
+        description: 'X-Content-Type-Options header not found',
+        recommendation: 'Add X-Content-Type-Options to prevent MIME sniffing'
+      },
+      referrerPolicy: {
+        present: false,
+        value: null,
+        status: 'Missing',
+        description: 'Referrer-Policy header not found',
+        recommendation: 'Add Referrer-Policy to protect sensitive referral data'
+      },
+      permissionsPolicy: {
+        present: false,
+        value: null,
+        status: 'Missing',
+        description: 'Permissions-Policy header not found',
+        recommendation: 'Add Permissions-Policy to restrict feature access'
+      },
+      summary: {
+        totalHeaders: 0,
+        securityScore: 0,
+        overallStatus: 'Poor',
+        recommendations: [] as string[]
+      }
+    };
+
+    // Check HSTS
+    if (headers['strict-transport-security'] || headers['Strict-Transport-Security']) {
+      analysis.hsts.present = true;
+      analysis.hsts.value = headers['strict-transport-security'] || headers['Strict-Transport-Security'];
+      analysis.hsts.status = 'Present';
+      analysis.hsts.description = 'HSTS header is configured';
+      analysis.hsts.recommendation = 'HSTS is properly configured';
+    }
+
+    // Check CSP
+    if (headers['content-security-policy'] || headers['Content-Security-Policy']) {
+      analysis.csp.present = true;
+      analysis.csp.value = headers['content-security-policy'] || headers['Content-Security-Policy'];
+      analysis.csp.status = 'Present';
+      analysis.csp.description = 'CSP header is configured';
+      analysis.csp.recommendation = 'CSP is properly configured';
+    }
+
+    // Check X-Frame-Options
+    if (headers['x-frame-options'] || headers['X-Frame-Options']) {
+      analysis.xFrameOptions.present = true;
+      analysis.xFrameOptions.value = headers['x-frame-options'] || headers['X-Frame-Options'];
+      analysis.xFrameOptions.status = 'Present';
+      analysis.xFrameOptions.description = 'X-Frame-Options header is configured';
+      analysis.xFrameOptions.recommendation = 'X-Frame-Options is properly configured';
+    }
+
+    // Check X-Content-Type-Options
+    if (headers['x-content-type-options'] || headers['X-Content-Type-Options']) {
+      analysis.xContentTypeOptions.present = true;
+      analysis.xContentTypeOptions.value = headers['x-content-type-options'] || headers['X-Content-Type-Options'];
+      analysis.xContentTypeOptions.status = 'Present';
+      analysis.xContentTypeOptions.description = 'X-Content-Type-Options header is configured';
+      analysis.xContentTypeOptions.recommendation = 'X-Content-Type-Options is properly configured';
+    }
+
+    // Check Referrer-Policy
+    if (headers['referrer-policy'] || headers['Referrer-Policy']) {
+      analysis.referrerPolicy.present = true;
+      analysis.referrerPolicy.value = headers['referrer-policy'] || headers['Referrer-Policy'];
+      analysis.referrerPolicy.status = 'Present';
+      analysis.referrerPolicy.description = 'Referrer-Policy header is configured';
+      analysis.referrerPolicy.recommendation = 'Referrer-Policy is properly configured';
+    }
+
+    // Check Permissions-Policy
+    if (headers['permissions-policy'] || headers['Permissions-Policy']) {
+      analysis.permissionsPolicy.present = true;
+      analysis.permissionsPolicy.value = headers['permissions-policy'] || headers['Permissions-Policy'];
+      analysis.permissionsPolicy.status = 'Present';
+      analysis.permissionsPolicy.description = 'Permissions-Policy header is configured';
+      analysis.permissionsPolicy.recommendation = 'Permissions-Policy is properly configured';
+    }
+
+    // Calculate summary
+    const presentHeaders = [
+      analysis.hsts.present,
+      analysis.csp.present,
+      analysis.xFrameOptions.present,
+      analysis.xContentTypeOptions.present,
+      analysis.referrerPolicy.present,
+      analysis.permissionsPolicy.present
+    ].filter(Boolean).length;
+
+    analysis.summary.totalHeaders = presentHeaders;
+    analysis.summary.securityScore = Math.round((presentHeaders / 6) * 100);
+
+    // Determine overall status
+    if (analysis.summary.securityScore >= 80) {
+      analysis.summary.overallStatus = 'Excellent';
+    } else if (analysis.summary.securityScore >= 60) {
+      analysis.summary.overallStatus = 'Good';
+    } else if (analysis.summary.securityScore >= 40) {
+      analysis.summary.overallStatus = 'Fair';
+    } else if (analysis.summary.securityScore >= 20) {
+      analysis.summary.overallStatus = 'Poor';
+    } else {
+      analysis.summary.overallStatus = 'Very Poor';
+    }
+
+    // Generate recommendations
+    analysis.summary.recommendations = [];
+    if (!analysis.hsts.present) analysis.summary.recommendations.push(analysis.hsts.recommendation as string);
+    if (!analysis.csp.present) analysis.summary.recommendations.push(analysis.csp.recommendation as string);
+    if (!analysis.xFrameOptions.present) analysis.summary.recommendations.push(analysis.xFrameOptions.recommendation as string);
+    if (!analysis.xContentTypeOptions.present) analysis.summary.recommendations.push(analysis.xContentTypeOptions.recommendation as string);
+    if (!analysis.referrerPolicy.present) analysis.summary.recommendations.push(analysis.referrerPolicy.recommendation as string);
+    if (!analysis.permissionsPolicy.present) analysis.summary.recommendations.push(analysis.permissionsPolicy.recommendation as string);
+
+    return analysis;
+  }
+
+  // Google Mobile-Friendly Test Analysis
+  async analyzeMobileFriendly(url: string) {
+    try {
+      console.log(`Starting Google Mobile-Friendly Test analysis for: ${url}`);
+      
+      // Validate URL
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+
+      // Use Google's Mobile-Friendly Test API
+      const result = await this.runMobileFriendlyTest(url);
+      
+      console.log('Mobile-Friendly Test analysis completed');
+      
+      return {
+        url: url,
+        success: true,
+        timestamp: new Date().toISOString(),
+        ...result
+      };
+      
+    } catch (error) {
+      console.error('Mobile-Friendly Test analysis error:', error);
+      return {
+        url: url,
+        success: false,
+        error: true,
+        message: `Failed to analyze mobile-friendliness: ${error.message}`,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  // Core Web Vitals (CrUX) Analysis
+  async analyzeCoreWebVitals(url: string) {
+    try {
+      console.log(`Starting Core Web Vitals (CrUX) analysis for: ${url}`);
+      
+      // Validate URL
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+
+      // Extract origin from URL
+      const urlObj = new URL(url);
+      const origin = urlObj.origin;
+
+      // Use Google's CrUX API
+      const result = await this.runCoreWebVitalsAnalysis(origin);
+      
+      console.log('Core Web Vitals analysis completed');
+      
+      return {
+        url: url,
+        origin: origin,
+        success: true,
+        timestamp: new Date().toISOString(),
+        ...result
+      };
+      
+    } catch (error) {
+      console.error('Core Web Vitals analysis error:', error);
+      return {
+        url: url,
+        success: false,
+        error: true,
+        message: `Failed to analyze Core Web Vitals: ${error.message}`,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  // Run Google Mobile-Friendly Test
+  private async runMobileFriendlyTest(url: string) {
+    const GOOGLE_API_KEY = 'AIzaSyCXvKjP-5USQMsLQkcXCNK7qvXyrEgHvJM';
+    
+    const analysis = {
+      verdict: 'MOBILE_FRIENDLY',
+      issues: [] as string[],
+      screenshots: [] as any[],
+      details: {
+        viewport: false,
+        textSize: false,
+        clickableElements: false,
+        contentWidth: false,
+        plugins: false,
+        responsiveDesign: false,
+        loadingSpeed: false
+      },
+      recommendations: [] as string[]
+    };
+
+    try {
+      // Use Google's Mobile-Friendly Test API
+      const apiUrl = `https://searchconsole.googleapis.com/v1/urlTestingTools/mobileFriendlyTest:run?key=${GOOGLE_API_KEY}`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: url,
+          requestScreenshot: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Google Mobile-Friendly Test API response:', result);
+
+      // Parse the API response
+      if (result.mobileFriendliness === 'MOBILE_FRIENDLY') {
+        analysis.verdict = 'MOBILE_FRIENDLY';
+        analysis.recommendations.push('Website is mobile-friendly! Consider optimizing for even better performance');
+        analysis.recommendations.push('Test on various mobile devices and screen sizes');
+        analysis.recommendations.push('Monitor Core Web Vitals for mobile performance');
+      } else {
+        analysis.verdict = 'NOT_MOBILE_FRIENDLY';
+      }
+
+      // Parse issues from the API response
+      if (result.mobileFriendlyIssues) {
+        result.mobileFriendlyIssues.forEach((issue: any) => {
+          const issueType = issue.rule;
+          const issueDescription = this.getIssueDescription(issueType);
+          
+          analysis.issues.push(issueDescription);
+          
+          // Map issues to details
+          switch (issueType) {
+            case 'USES_INCOMPATIBLE_PLUGINS':
+              analysis.details.plugins = true;
+              analysis.recommendations.push('Remove or replace Flash and other incompatible plugins');
+              break;
+            case 'CONFIGURE_VIEWPORT':
+              analysis.details.viewport = true;
+              analysis.recommendations.push('Add viewport meta tag: <meta name="viewport" content="width=device-width, initial-scale=1.0">');
+              break;
+            case 'FIXED_WIDTH_VIEWPORT':
+              analysis.details.contentWidth = true;
+              analysis.recommendations.push('Use flexible layouts with percentage-based widths');
+              break;
+            case 'SIZE_CONTENT_TO_VIEWPORT':
+              analysis.details.contentWidth = true;
+              analysis.recommendations.push('Ensure content fits within the viewport width');
+              break;
+            case 'USE_LEGIBLE_FONT_SIZES':
+              analysis.details.textSize = true;
+              analysis.recommendations.push('Use larger font sizes (minimum 16px) for mobile readability');
+              break;
+            case 'TAP_TARGETS_TOO_CLOSE':
+              analysis.details.clickableElements = true;
+              analysis.recommendations.push('Ensure clickable elements have adequate spacing (minimum 44px)');
+              break;
+            case 'AVOID_PLUGINS':
+              analysis.details.plugins = true;
+              analysis.recommendations.push('Remove or replace Flash and other incompatible plugins');
+              break;
+            default:
+              analysis.recommendations.push(`Fix ${issueType.toLowerCase().replace(/_/g, ' ')}`);
+          }
+        });
+      }
+
+      // Handle screenshots if available
+      if (result.screenshot && result.screenshot.data) {
+        analysis.screenshots.push({
+          data: result.screenshot.data,
+          mimeType: result.screenshot.mimeType || 'image/png',
+          description: 'Mobile view as seen by Googlebot'
+        });
+      }
+
+      // If no specific issues found but not mobile-friendly, add general recommendations
+      if (analysis.issues.length === 0 && analysis.verdict === 'NOT_MOBILE_FRIENDLY') {
+        analysis.recommendations.push('Implement responsive design using CSS media queries');
+        analysis.recommendations.push('Ensure touch targets are at least 44px in size');
+        analysis.recommendations.push('Use readable font sizes and adequate spacing');
+      }
+
+      return analysis;
+
+    } catch (error) {
+      console.error('Error calling Google Mobile-Friendly Test API:', error);
+      
+      // Fallback to manual analysis if API fails
+      try {
+        const pageData = await this.getPageData(url) as any;
+        
+        // Analyze viewport meta tag
+        if (!pageData.html.includes('viewport') || !pageData.html.includes('width=device-width')) {
+          analysis.issues.push('Viewport not set');
+          analysis.details.viewport = true;
+          analysis.verdict = 'NOT_MOBILE_FRIENDLY';
+        }
+
+        // Check for responsive design indicators
+        const hasResponsiveCSS = pageData.html.includes('@media') || 
+                                pageData.html.includes('max-width') || 
+                                pageData.html.includes('min-width');
+        
+        if (!hasResponsiveCSS) {
+          analysis.issues.push('No responsive design detected');
+          analysis.details.responsiveDesign = true;
+          analysis.verdict = 'NOT_MOBILE_FRIENDLY';
+        }
+
+        // Check for Flash or other incompatible plugins
+        if (pageData.html.includes('flash') || pageData.html.includes('swf') || pageData.html.includes('object')) {
+          analysis.issues.push('Incompatible plugins detected');
+          analysis.details.plugins = true;
+          analysis.verdict = 'NOT_MOBILE_FRIENDLY';
+        }
+
+        // Generate recommendations based on issues
+        if (analysis.details.viewport) {
+          analysis.recommendations.push('Add viewport meta tag: <meta name="viewport" content="width=device-width, initial-scale=1.0">');
+        }
+        if (analysis.details.responsiveDesign) {
+          analysis.recommendations.push('Implement responsive design using CSS media queries');
+        }
+        if (analysis.details.plugins) {
+          analysis.recommendations.push('Remove or replace Flash and other incompatible plugins');
+        }
+
+        if (analysis.issues.length === 0) {
+          analysis.verdict = 'MOBILE_FRIENDLY';
+          analysis.recommendations.push('Website appears mobile-friendly! Consider using Google\'s official test for detailed analysis');
+        }
+
+      } catch (fallbackError) {
+        console.error('Fallback analysis also failed:', fallbackError);
+        analysis.verdict = 'NOT_MOBILE_FRIENDLY';
+        analysis.issues.push('Unable to analyze page content');
+        analysis.recommendations.push('Check if the website is accessible and try again');
+      }
+
+      return analysis;
+    }
+  }
+
+  // Get human-readable issue descriptions
+  private getIssueDescription(issueType: string): string {
+    const descriptions: { [key: string]: string } = {
+      'USES_INCOMPATIBLE_PLUGINS': 'Incompatible plugins',
+      'CONFIGURE_VIEWPORT': 'Viewport not set',
+      'FIXED_WIDTH_VIEWPORT': 'Content wider than screen',
+      'SIZE_CONTENT_TO_VIEWPORT': 'Content wider than screen',
+      'USE_LEGIBLE_FONT_SIZES': 'Text too small to read',
+      'TAP_TARGETS_TOO_CLOSE': 'Clickable elements too close',
+      'AVOID_PLUGINS': 'Incompatible plugins detected'
+    };
+    
+    return descriptions[issueType] || `Issue: ${issueType.toLowerCase().replace(/_/g, ' ')}`;
+  }
+
+  // Run Core Web Vitals (CrUX) Analysis
+  private async runCoreWebVitalsAnalysis(origin: string) {
+    const GOOGLE_API_KEY = 'AIzaSyCXvKjP-5USQMsLQkcXCNK7qvXyrEgHvJM';
+    
+    const analysis = {
+      recordCount: 0,
+      metrics: {
+        lcp: { p75: 0, good: 0, needsImprovement: 0, poor: 0 },
+        fid: { p75: 0, good: 0, needsImprovement: 0, poor: 0 },
+        cls: { p75: 0, good: 0, needsImprovement: 0, poor: 0 },
+        ttfb: { p75: 0, good: 0, needsImprovement: 0, poor: 0 },
+        inp: { p75: 0, good: 0, needsImprovement: 0, poor: 0 }
+      },
+      formFactors: {
+        desktop: null as any,
+        mobile: null as any,
+        tablet: null as any
+      },
+      effectiveConnectionTypes: {
+        '4g': null,
+        '3g': null,
+        '2g': null,
+        slow2g: null
+      },
+      summary: {
+        overallScore: 0,
+        status: '',
+        recommendations: [] as string[]
+      }
+    };
+
+    try {
+      // Use Google's CrUX API
+      const apiUrl = `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${GOOGLE_API_KEY}`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          origin: origin,
+          formFactor: 'ALL_FORM_FACTORS'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`CrUX API request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('CrUX API response:', result);
+      console.log('CrUX API response keys:', Object.keys(result));
+
+      if (result.record) {
+        analysis.recordCount = result.record.recordCount || 0;
+        
+        // Parse metrics for different form factors
+        if (result.record.metrics) {
+          // Desktop metrics
+          if (result.record.metrics.largest_contentful_paint && result.record.metrics.largest_contentful_paint.desktop) {
+            analysis.formFactors.desktop = this.parseMetrics(result.record.metrics, 'desktop');
+          }
+          
+          // Mobile metrics
+          if (result.record.metrics.largest_contentful_paint && result.record.metrics.largest_contentful_paint.mobile) {
+            analysis.formFactors.mobile = this.parseMetrics(result.record.metrics, 'mobile');
+          }
+          
+          // Tablet metrics
+          if (result.record.metrics.largest_contentful_paint && result.record.metrics.largest_contentful_paint.tablet) {
+            analysis.formFactors.tablet = this.parseMetrics(result.record.metrics, 'tablet');
+          }
+        }
+
+        // Calculate overall scores and generate recommendations
+        analysis.summary = this.calculateCoreWebVitalsSummary(analysis);
+      } else {
+        analysis.summary.status = 'No data available';
+        analysis.summary.recommendations.push('No Core Web Vitals data available for this origin. This could mean:');
+        analysis.summary.recommendations.push('- The site is new or has low traffic');
+        analysis.summary.recommendations.push('- The site is not accessible to Chrome users');
+        analysis.summary.recommendations.push('- Try analyzing a specific page URL instead of the origin');
+      }
+
+      return analysis;
+
+    } catch (error) {
+      console.error('Error calling CrUX API:', error);
+      console.error('Error details:', error.message);
+      
+      analysis.summary.status = 'Analysis failed';
+      analysis.summary.recommendations.push('Unable to fetch Core Web Vitals data. This could be due to:');
+      analysis.summary.recommendations.push('- API key issues or quota limits');
+      analysis.summary.recommendations.push('- Network connectivity problems');
+      analysis.summary.recommendations.push('- The site may not have sufficient Chrome user data');
+      analysis.summary.recommendations.push(`- Error: ${error.message}`);
+      
+      return analysis;
+    }
+  }
+
+  // Parse metrics for a specific form factor
+  private parseMetrics(metrics: any, formFactor: string) {
+    const parsed = {
+      lcp: { p75: 0, good: 0, needsImprovement: 0, poor: 0, total: 0 },
+      fid: { p75: 0, good: 0, needsImprovement: 0, poor: 0, total: 0 },
+      cls: { p75: 0, good: 0, needsImprovement: 0, poor: 0, total: 0 },
+      ttfb: { p75: 0, good: 0, needsImprovement: 0, poor: 0, total: 0 },
+      inp: { p75: 0, good: 0, needsImprovement: 0, poor: 0, total: 0 }
+    };
+
+    // Largest Contentful Paint (LCP)
+    if (metrics.largest_contentful_paint && metrics.largest_contentful_paint[formFactor]) {
+      const lcp = metrics.largest_contentful_paint[formFactor];
+      parsed.lcp.p75 = lcp.percentiles.p75 || 0;
+      parsed.lcp.good = lcp.histogram[0]?.density || 0;
+      parsed.lcp.needsImprovement = lcp.histogram[1]?.density || 0;
+      parsed.lcp.poor = lcp.histogram[2]?.density || 0;
+      parsed.lcp.total = parsed.lcp.good + parsed.lcp.needsImprovement + parsed.lcp.poor;
+    }
+
+    // First Input Delay (FID) - Note: FID is being replaced by INP
+    if (metrics.first_input_delay && metrics.first_input_delay[formFactor]) {
+      const fid = metrics.first_input_delay[formFactor];
+      parsed.fid.p75 = fid.percentiles.p75 || 0;
+      parsed.fid.good = fid.histogram[0]?.density || 0;
+      parsed.fid.needsImprovement = fid.histogram[1]?.density || 0;
+      parsed.fid.poor = fid.histogram[2]?.density || 0;
+      parsed.fid.total = parsed.fid.good + parsed.fid.needsImprovement + parsed.fid.poor;
+    }
+
+    // Cumulative Layout Shift (CLS)
+    if (metrics.cumulative_layout_shift && metrics.cumulative_layout_shift[formFactor]) {
+      const cls = metrics.cumulative_layout_shift[formFactor];
+      parsed.cls.p75 = cls.percentiles.p75 || 0;
+      parsed.cls.good = cls.histogram[0]?.density || 0;
+      parsed.cls.needsImprovement = cls.histogram[1]?.density || 0;
+      parsed.cls.poor = cls.histogram[2]?.density || 0;
+      parsed.cls.total = parsed.cls.good + parsed.cls.needsImprovement + parsed.cls.poor;
+    }
+
+    // Time to First Byte (TTFB)
+    if (metrics.first_contentful_paint && metrics.first_contentful_paint[formFactor]) {
+      const ttfb = metrics.first_contentful_paint[formFactor];
+      parsed.ttfb.p75 = ttfb.percentiles.p75 || 0;
+      parsed.ttfb.good = ttfb.histogram[0]?.density || 0;
+      parsed.ttfb.needsImprovement = ttfb.histogram[1]?.density || 0;
+      parsed.ttfb.poor = ttfb.histogram[2]?.density || 0;
+      parsed.ttfb.total = parsed.ttfb.good + parsed.ttfb.needsImprovement + parsed.ttfb.poor;
+    }
+
+    // Interaction to Next Paint (INP) - New Core Web Vital
+    if (metrics.interaction_to_next_paint && metrics.interaction_to_next_paint[formFactor]) {
+      const inp = metrics.interaction_to_next_paint[formFactor];
+      parsed.inp.p75 = inp.percentiles.p75 || 0;
+      parsed.inp.good = inp.histogram[0]?.density || 0;
+      parsed.inp.needsImprovement = inp.histogram[1]?.density || 0;
+      parsed.inp.poor = inp.histogram[2]?.density || 0;
+      parsed.inp.total = parsed.inp.good + parsed.inp.needsImprovement + parsed.inp.poor;
+    }
+
+    return parsed;
+  }
+
+  // Calculate overall Core Web Vitals summary
+  private calculateCoreWebVitalsSummary(analysis: any) {
+    const summary = {
+      overallScore: 0,
+      status: '',
+      recommendations: [] as string[]
+    };
+
+    // Use mobile metrics as primary (Google's preference)
+    const primaryMetrics = analysis.formFactors.mobile || analysis.formFactors.desktop;
+    
+    if (!primaryMetrics) {
+      summary.status = 'No data available';
+      return summary;
+    }
+
+    let totalScore = 0;
+    let metricCount = 0;
+
+    // Calculate LCP score
+    if (primaryMetrics.lcp.total > 0) {
+      const lcpScore = (primaryMetrics.lcp.good / primaryMetrics.lcp.total) * 100;
+      totalScore += lcpScore;
+      metricCount++;
+      
+      if (lcpScore < 75) {
+        summary.recommendations.push(`Optimize Largest Contentful Paint (LCP): ${primaryMetrics.lcp.p75.toFixed(0)}ms (75th percentile). Target < 2.5s.`);
+      }
+    }
+
+    // Calculate CLS score
+    if (primaryMetrics.cls.total > 0) {
+      const clsScore = (primaryMetrics.cls.good / primaryMetrics.cls.total) * 100;
+      totalScore += clsScore;
+      metricCount++;
+      
+      if (clsScore < 75) {
+        summary.recommendations.push(`Improve Cumulative Layout Shift (CLS): ${primaryMetrics.cls.p75.toFixed(3)} (75th percentile). Target < 0.1.`);
+      }
+    }
+
+    // Calculate INP score (or FID as fallback)
+    if (primaryMetrics.inp.total > 0) {
+      const inpScore = (primaryMetrics.inp.good / primaryMetrics.inp.total) * 100;
+      totalScore += inpScore;
+      metricCount++;
+      
+      if (inpScore < 75) {
+        summary.recommendations.push(`Optimize Interaction to Next Paint (INP): ${primaryMetrics.inp.p75.toFixed(0)}ms (75th percentile). Target < 200ms.`);
+      }
+    } else if (primaryMetrics.fid.total > 0) {
+      const fidScore = (primaryMetrics.fid.good / primaryMetrics.fid.total) * 100;
+      totalScore += fidScore;
+      metricCount++;
+      
+      if (fidScore < 75) {
+        summary.recommendations.push(`Improve First Input Delay (FID): ${primaryMetrics.fid.p75.toFixed(0)}ms (75th percentile). Target < 100ms.`);
+      }
+    }
+
+    // Calculate overall score
+    if (metricCount > 0) {
+      summary.overallScore = Math.round(totalScore / metricCount);
+    }
+
+    // Determine status
+    if (summary.overallScore >= 90) {
+      summary.status = 'Excellent';
+      summary.recommendations.push('Great job! Your Core Web Vitals are performing well.');
+    } else if (summary.overallScore >= 75) {
+      summary.status = 'Good';
+      summary.recommendations.push('Your Core Web Vitals are good, but there\'s room for improvement.');
+    } else if (summary.overallScore >= 50) {
+      summary.status = 'Needs Improvement';
+      summary.recommendations.push('Your Core Web Vitals need attention to improve user experience.');
+    } else {
+      summary.status = 'Poor';
+      summary.recommendations.push('Your Core Web Vitals require immediate attention.');
+    }
+
+    // Add general recommendations
+    if (summary.overallScore < 90) {
+      summary.recommendations.push('Consider implementing performance optimizations like:');
+      summary.recommendations.push('- Image optimization and lazy loading');
+      summary.recommendations.push('- Minimizing render-blocking resources');
+      summary.recommendations.push('- Using a CDN for faster content delivery');
+      summary.recommendations.push('- Implementing proper caching strategies');
+    }
+
+    return summary;
+  }
+
+  // Get page data for analysis
+  private async getPageData(url: string) {
+    return new Promise((resolve, reject) => {
+      const https = require('https');
+      const http = require('http');
+      
+      const isHttps = url.startsWith('https://');
+      const client = isHttps ? https : http;
+      
+      const timeout = setTimeout(() => {
+        reject(new Error('Request timeout after 10 seconds'));
+      }, 10000);
+
+      const req = client.get(url, (res) => {
+        clearTimeout(timeout);
+        
+        let data = '';
+        
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        
+        res.on('end', () => {
+          resolve({
+            html: data,
+            headers: res.headers,
+            statusCode: res.statusCode
+          });
+        });
+      });
+      
+      req.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+      
+      req.setTimeout(10000, () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+    });
+  }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { analyzeWebsite, analyzeWebsiteWithPageSpeed, testWebsiteAccessibility, analyzeTechStack } from '../services/api';
+import { analyzeWebsite, analyzeCoreWebVitals, testWebsiteAccessibility, analyzeTechStack, analyzeSecurityHeaders, analyzeMobileFriendly } from '../services/api';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -14,6 +14,12 @@ const AddWebsite = () => {
   const [accessibilityResult, setAccessibilityResult] = useState(null);
   const [isAnalyzingTechStack, setIsAnalyzingTechStack] = useState(false);
   const [techStackResult, setTechStackResult] = useState(null);
+  const [isAnalyzingSecurityHeaders, setIsAnalyzingSecurityHeaders] = useState(false);
+  const [securityHeadersResult, setSecurityHeadersResult] = useState(null);
+  const [isAnalyzingMobileFriendly, setIsAnalyzingMobileFriendly] = useState(false);
+  const [mobileFriendlyResult, setMobileFriendlyResult] = useState(null);
+  const [isAnalyzingCoreWebVitals, setIsAnalyzingCoreWebVitals] = useState(false);
+  const [coreWebVitalsResult, setCoreWebVitalsResult] = useState(null);
   const reportRef = useRef(null);
 
   const handleSubmit = async (e) => {
@@ -28,48 +34,37 @@ const AddWebsite = () => {
     setReport(null);
 
     try {
-      // Run all three analyses in parallel
-      const [lighthouseResult, psiResult] = await Promise.all([
-        analyzeWebsite(url).catch(error => {
-          console.error('Lighthouse analysis failed:', error);
-          return { error: true, message: error.message };
-        }),
-        analyzeWebsiteWithPageSpeed(url).catch(error => {
-          console.error('PSI analysis failed:', error);
-          return { error: true, message: error.message };
-        })
-      ]);
+      // Run Lighthouse analysis only (Core Web Vitals is handled separately in tabs)
+      const lighthouseResult = await analyzeWebsite(url).catch(error => {
+        console.error('Lighthouse analysis failed:', error);
+        return { error: true, message: error.message };
+      });
 
       // Debug: Log the received data
       console.log('Lighthouse result received:', lighthouseResult);
       console.log('Lighthouse result keys:', Object.keys(lighthouseResult));
-      console.log('PSI result received:', psiResult);
-      console.log('PSI result keys:', Object.keys(psiResult));
-      console.log('PSI categories:', psiResult.categories);
-      console.log('PSI categories keys:', psiResult.categories ? Object.keys(psiResult.categories) : 'No categories');
       
-              // Debug screenshots
-        if (lighthouseResult.screenshots) {
-          console.log('Screenshots found in Lighthouse result:', lighthouseResult.screenshots.length);
-          console.log('All screenshots:', lighthouseResult.screenshots);
-          lighthouseResult.screenshots.forEach((screenshot, index) => {
-            console.log(`Screenshot ${index + 1}:`, {
-              id: screenshot.id,
-              description: screenshot.description,
-              phase: screenshot.phase,
-              timestamp: screenshot.timestamp,
-              dataLength: screenshot.data ? screenshot.data.length : 0
-            });
+      // Debug screenshots
+      if (lighthouseResult.screenshots) {
+        console.log('Screenshots found in Lighthouse result:', lighthouseResult.screenshots.length);
+        console.log('All screenshots:', lighthouseResult.screenshots);
+        lighthouseResult.screenshots.forEach((screenshot, index) => {
+          console.log(`Screenshot ${index + 1}:`, {
+            id: screenshot.id,
+            description: screenshot.description,
+            phase: screenshot.phase,
+            timestamp: screenshot.timestamp,
+            dataLength: screenshot.data ? screenshot.data.length : 0
           });
-        } else {
-          console.log('No screenshots found in Lighthouse result');
-        }
+        });
+      } else {
+        console.log('No screenshots found in Lighthouse result');
+      }
 
       // Set the complete report
       setReport({
         url,
-        performance: lighthouseResult,
-        psi: psiResult
+        performance: lighthouseResult
       });
 
     } catch (error) {
@@ -119,6 +114,108 @@ const AddWebsite = () => {
       setError(error.message);
     } finally {
       setIsAnalyzingTechStack(false);
+    }
+  };
+
+  const handleAnalyzeSecurityHeaders = async () => {
+    if (!url.trim()) {
+      setError('Please enter a valid URL first');
+      return;
+    }
+
+    setIsAnalyzingSecurityHeaders(true);
+    setError(null);
+    setSecurityHeadersResult(null);
+
+    try {
+      const result = await analyzeSecurityHeaders(url);
+      setSecurityHeadersResult(result);
+    } catch (error) {
+      console.error('Security headers analysis failed:', error);
+      setError(error.message);
+    } finally {
+      setIsAnalyzingSecurityHeaders(false);
+    }
+  };
+
+  const handleAnalyzeMobileFriendly = async () => {
+    if (!url.trim()) {
+      setError('Please enter a valid URL first');
+      return;
+    }
+
+    setIsAnalyzingMobileFriendly(true);
+    setError(null);
+    setMobileFriendlyResult(null);
+
+    try {
+      const result = await analyzeMobileFriendly(url);
+      setMobileFriendlyResult(result);
+    } catch (error) {
+      console.error('Mobile-friendly analysis failed:', error);
+      setError(error.message);
+    } finally {
+      setIsAnalyzingMobileFriendly(false);
+    }
+  };
+
+  const handleAnalyzeCoreWebVitals = async () => {
+    if (!url.trim()) {
+      setError('Please enter a valid URL first');
+      return;
+    }
+
+    setIsAnalyzingCoreWebVitals(true);
+    setError(null);
+    setCoreWebVitalsResult(null);
+
+    try {
+      const result = await analyzeCoreWebVitals(url);
+      setCoreWebVitalsResult(result);
+    } catch (error) {
+      console.error('Core Web Vitals analysis failed:', error);
+      setError(error.message);
+    } finally {
+      setIsAnalyzingCoreWebVitals(false);
+    }
+  };
+
+  const handleTabChange = async (tabName) => {
+    if (!url.trim()) {
+      setError('Please enter a valid URL first');
+      return;
+    }
+
+    setActiveTab(tabName);
+    setError(null);
+
+    // Automatically trigger analysis based on the tab
+    switch (tabName) {
+      case 'lighthouse':
+        // Lighthouse analysis is already handled by the main form submit
+        break;
+      case 'corewebvitals':
+        if (!coreWebVitalsResult) {
+          await handleAnalyzeCoreWebVitals();
+        }
+        break;
+      case 'techstack':
+        if (!techStackResult) {
+          await handleAnalyzeTechStack();
+        }
+        break;
+      case 'security':
+        if (!securityHeadersResult) {
+          await handleAnalyzeSecurityHeaders();
+        }
+        break;
+      case 'mobile':
+        if (!mobileFriendlyResult) {
+          await handleAnalyzeMobileFriendly();
+        }
+        break;
+      default:
+        break;
     }
   };
 
@@ -250,11 +347,11 @@ const AddWebsite = () => {
               <p className="text-sm text-gray-600 mt-1">Generated on {new Date().toLocaleString()}</p>
             </div>
             
-            {/* Tab Navigation - Lighthouse, Google PSI, and Tech Stack */}
+            {/* Tab Navigation - Lighthouse, Core Web Vitals, Tech Stack, Security Headers, and Mobile-Friendly */}
             <div className="border-b border-gray-200">
               <nav className="-mb-px flex space-x-8">
                 <button
-                  onClick={() => setActiveTab('lighthouse')}
+                  onClick={() => handleTabChange('lighthouse')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'lighthouse'
                       ? 'border-blue-500 text-blue-600'
@@ -264,17 +361,17 @@ const AddWebsite = () => {
                   Lighthouse
                 </button>
                 <button
-                  onClick={() => setActiveTab('psi')}
+                  onClick={() => handleTabChange('corewebvitals')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'psi'
+                    activeTab === 'corewebvitals'
                       ? 'border-green-500 text-green-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  Google PSI
+                  Core Web Vitals
                 </button>
                 <button
-                  onClick={() => setActiveTab('techstack')}
+                  onClick={() => handleTabChange('techstack')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'techstack'
                       ? 'border-purple-500 text-purple-600'
@@ -282,6 +379,26 @@ const AddWebsite = () => {
                   }`}
                 >
                   Tech Stack
+                </button>
+                <button
+                  onClick={() => handleTabChange('security')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'security'
+                      ? 'border-red-500 text-red-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Security Headers
+                </button>
+                <button
+                  onClick={() => handleTabChange('mobile')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'mobile'
+                      ? 'border-orange-500 text-orange-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  Mobile-Friendly
                 </button>
               </nav>
             </div>
@@ -735,131 +852,61 @@ const AddWebsite = () => {
                 </>
               )}
               
-              {/* Google PSI Tab */}
-              {activeTab === 'psi' && (
+              {/* Core Web Vitals Tab */}
+              {activeTab === 'corewebvitals' && (
                 <>
-                  {report.psi?.error ? (
-                    <div className="text-center text-red-500 py-8">
-                      <p>Google PSI Analysis Failed</p>
-                      <p className="text-sm mt-2">{report.psi.message}</p>
+                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <h4 className="text-green-800 font-medium mb-2">Core Web Vitals (CrUX)</h4>
+                    <p className="text-green-700 text-sm">
+                      Real user performance metrics from Chrome UX Report. Shows how your site performs for actual users across devices, networks, and locations.
+                    </p>
+                  </div>
+                  
+                  {isAnalyzingCoreWebVitals ? (
+                    <div className="text-center py-8">
+                      <div className="mb-4">
+                        <svg className="animate-spin mx-auto h-12 w-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Analyzing Core Web Vitals...</h3>
+                      <p className="text-gray-500">Please wait while we fetch real user performance data from Chrome UX Report.</p>
+                    </div>
+                  ) : coreWebVitalsResult ? (
+                    <div className="space-y-6">
+                      {coreWebVitalsResult.success ? (
+                        <CoreWebVitalsDisplay data={coreWebVitalsResult} />
+                      ) : (
+                        <div className="text-center py-8">
+                          <div className="mb-4">
+                            <svg className="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                          </div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">Analysis Failed</h3>
+                          <p className="text-gray-500 mb-4">
+                            {coreWebVitalsResult.message}
+                          </p>
+                          <button
+                            onClick={handleAnalyzeCoreWebVitals}
+                            disabled={isAnalyzingCoreWebVitals}
+                            className="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
+                          >
+                            {isAnalyzingCoreWebVitals ? 'Analyzing...' : 'Try Again'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <>
-                      {/* PSI Information */}
-                      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <h4 className="text-blue-800 font-medium mb-2">Google PageSpeed Insights</h4>
-                        <p className="text-blue-700 text-sm">
-                          PSI provides Google's official performance metrics and optimization suggestions. 
-                          For comprehensive category analysis (Accessibility, Best Practices, SEO, PWA), use the Lighthouse tab.
-                        </p>
+                    <div className="text-center py-8">
+                      <div className="mb-4">
+                        <svg className="mx-auto h-12 w-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
                       </div>
-                      
-                      {/* Category Scores - Only show available categories */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                        {/* Performance is always available */}
-                        <ScoreCard title="Performance" score={report.psi.categories?.performance || report.psi.score} color="blue" />
-                        
-                        {/* Only show other categories if they exist */}
-                        {report.psi.categories?.accessibility && (
-                          <ScoreCard title="Accessibility" score={report.psi.categories.accessibility} color="green" />
-                        )}
-                        
-                        {report.psi.categories?.['best-practices'] && (
-                          <ScoreCard title="Best Practices" score={report.psi.categories['best-practices']} color="yellow" />
-                        )}
-                        
-                        {report.psi.categories?.seo && (
-                          <ScoreCard title="SEO" score={report.psi.categories.seo} color="purple" />
-                        )}
-                        
-                        {report.psi.categories?.pwa && (
-                          <ScoreCard title="PWA" score={report.psi.categories.pwa} color="indigo" />
-                        )}
-                      </div>
-                      
-                      {/* Category Availability Notice - Only show if some categories are missing */}
-                      {Object.keys(report.psi.categories || {}).length < 5 && (
-                        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <h4 className="text-blue-800 font-medium mb-2">PSI Analysis Information</h4>
-                          <p className="text-blue-700 text-sm">
-                            Google PageSpeed Insights focuses on performance analysis. Some categories (Accessibility, Best Practices, SEO, PWA) may not be available for all websites. 
-                            For comprehensive category analysis, use the Lighthouse tab.
-                          </p>
-                        </div>
-                      )}
-                      
-                      <div className="mb-8">
-                        <h3 className="text-xl font-bold mb-4">Performance Metrics</h3>
-                        {report.psi.firstContentfulPaint ? (
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                              <MetricItem label="First Contentful Paint" value={report.psi.firstContentfulPaint || 'N/A'} />
-                              <MetricItem label="Speed Index" value={report.psi.speedIndex || 'N/A'} />
-                              <MetricItem label="Largest Contentful Paint" value={report.psi.largestContentfulPaint || 'N/A'} />
-                              <MetricItem label="Time to Interactive" value={report.psi.timeToInteractive || 'N/A'} />
-                              <MetricItem label="Total Blocking Time" value={report.psi.totalBlockingTime || 'N/A'} />
-                              <MetricItem label="Cumulative Layout Shift" value={report.psi.cumulativeLayoutShift || 'N/A'} />
-                              <MetricItem label="Max Potential FID" value={report.psi.maxPotentialFID || 'N/A'} />
-                              <MetricItem label="Server Response Time" value={report.psi.serverResponseTime || 'N/A'} />
-                              <MetricItem label="Render Blocking Resources" value={report.psi.renderBlockingResources || 'N/A'} />
-                            </div>
-                          </div>
-                        ) : (
-                          <p>No performance metrics available.</p>
-                        )}
-                      </div>
-                      
-                      {/* Resource Analysis */}
-                      {report.psi.resources && (
-                        <div className="mb-8">
-                          <h3 className="text-xl font-bold mb-4">Resource Analysis</h3>
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                              <MetricItem label="Total Requests" value={report.psi.resources.totalRequests || 'N/A'} />
-                              <MetricItem label="Total Size" value={report.psi.resources.totalSize || 'N/A'} />
-                              <MetricItem label="Images" value={report.psi.resources.imageCount || 'N/A'} />
-                              <MetricItem label="Scripts" value={report.psi.resources.scriptCount || 'N/A'} />
-                              <MetricItem label="Stylesheets" value={report.psi.resources.stylesheetCount || 'N/A'} />
-                              <MetricItem label="Fonts" value={report.psi.resources.fontCount || 'N/A'} />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Performance Suggestions */}
-                      {report.psi.suggestions && report.psi.suggestions.length > 0 && (
-                        <div className="mb-8">
-                          <h3 className="text-xl font-bold mb-4">Performance Suggestions</h3>
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <ul className="space-y-3">
-                              {report.psi.suggestions.map((suggestion, index) => (
-                                <li key={index} className="border-l-4 border-green-500 pl-4 py-2">
-                                  <h4 className="font-medium">{suggestion.title || suggestion}</h4>
-                                  {suggestion.description && (
-                                    <p className="text-sm text-gray-600">{suggestion.description}</p>
-                                  )}
-                                  {suggestion.savings && (
-                                    <p className="text-sm text-green-600 mt-1">Potential savings: {suggestion.savings}</p>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {(!report.psi.firstContentfulPaint && (!report.psi.suggestions || report.psi.suggestions.length === 0)) && (
-                        <div className="text-center text-gray-500 py-8">
-                          <p>PSI analysis could not be completed. This may be due to:</p>
-                          <ul className="mt-2 text-sm">
-                            <li>• Website is not accessible</li>
-                            <li>• API rate limits exceeded</li>
-                            <li>• Network connectivity issues</li>
-                            <li>• Invalid API key</li>
-                          </ul>
-                        </div>
-                      )}
-                    </>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Click Core Web Vitals Tab to Analyze</h3>
+                      <p className="text-gray-500">Switch to the Core Web Vitals tab to automatically analyze real user performance metrics.</p>
+                    </div>
                   )}
                 </>
               )}
@@ -915,26 +962,17 @@ const AddWebsite = () => {
             </p>
           </div>
           
-          {!techStackResult ? (
+          {isAnalyzingTechStack ? (
             <div className="text-center py-8">
               <div className="mb-4">
-                <svg className="mx-auto h-12 w-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                <svg className="animate-spin mx-auto h-12 w-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to Analyze Tech Stack</h3>
-              <p className="text-gray-500 mb-4">
-                Click the "Tech Stack" button above to analyze the technology stack of this website.
-              </p>
-              <button
-                onClick={handleAnalyzeTechStack}
-                disabled={isAnalyzingTechStack || !url.trim()}
-                className="px-6 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
-              >
-                {isAnalyzingTechStack ? 'Analyzing...' : 'Analyze Tech Stack'}
-              </button>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Analyzing Tech Stack...</h3>
+              <p className="text-gray-500">Please wait while we analyze the technology stack.</p>
             </div>
-          ) : (
+          ) : techStackResult ? (
             <div className="space-y-6">
               {techStackResult.success ? (
                 <TechStackDisplay data={techStackResult} />
@@ -958,6 +996,136 @@ const AddWebsite = () => {
                   </button>
                 </div>
               )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="mb-4">
+                <svg className="mx-auto h-12 w-12 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Click Tech Stack Tab to Analyze</h3>
+              <p className="text-gray-500">Switch to the Tech Stack tab to automatically analyze the technology stack.</p>
+            </div>
+          )}
+        </>
+      )}
+      
+      {/* Security Headers Tab */}
+      {activeTab === 'security' && (
+        <>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <h4 className="text-red-800 font-medium mb-2">Security Headers Analysis</h4>
+            <p className="text-red-700 text-sm">
+              Check if a website has essential HTTP security headers to protect against various attacks 
+              like XSS, clickjacking, and downgrade attacks.
+            </p>
+          </div>
+          
+          {isAnalyzingSecurityHeaders ? (
+            <div className="text-center py-8">
+              <div className="mb-4">
+                <svg className="animate-spin mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Analyzing Security Headers...</h3>
+              <p className="text-gray-500">Please wait while we analyze the security headers.</p>
+            </div>
+          ) : securityHeadersResult ? (
+            <div className="space-y-6">
+              {securityHeadersResult.success ? (
+                <SecurityHeadersDisplay data={securityHeadersResult} />
+              ) : (
+                <div className="text-center py-8">
+                  <div className="mb-4">
+                    <svg className="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Analysis Failed</h3>
+                  <p className="text-gray-500 mb-4">
+                    {securityHeadersResult.message}
+                  </p>
+                  <button
+                    onClick={handleAnalyzeSecurityHeaders}
+                    disabled={isAnalyzingSecurityHeaders}
+                    className="px-6 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+                  >
+                    {isAnalyzingSecurityHeaders ? 'Analyzing...' : 'Try Again'}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="mb-4">
+                <svg className="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Click Security Headers Tab to Analyze</h3>
+              <p className="text-gray-500">Switch to the Security Headers tab to automatically analyze the security headers.</p>
+            </div>
+          )}
+        </>
+      )}
+      
+      {/* Mobile-Friendly Tab */}
+      {activeTab === 'mobile' && (
+        <>
+          <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+            <h4 className="text-orange-800 font-medium mb-2">Mobile-Friendly Test</h4>
+            <p className="text-orange-700 text-sm">
+              Test if a website is mobile-friendly by analyzing viewport settings, responsive design, 
+              text readability, and other mobile-specific factors using Google's Mobile-Friendly Test API.
+            </p>
+          </div>
+          
+          {isAnalyzingMobileFriendly ? (
+            <div className="text-center py-8">
+              <div className="mb-4">
+                <svg className="animate-spin mx-auto h-12 w-12 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Analyzing Mobile-Friendliness...</h3>
+              <p className="text-gray-500">Please wait while we analyze the mobile-friendliness of this website.</p>
+            </div>
+          ) : mobileFriendlyResult ? (
+            <div className="space-y-6">
+              {mobileFriendlyResult.success ? (
+                <MobileFriendlyDisplay data={mobileFriendlyResult} />
+              ) : (
+                <div className="text-center py-8">
+                  <div className="mb-4">
+                    <svg className="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Analysis Failed</h3>
+                  <p className="text-gray-500 mb-4">
+                    {mobileFriendlyResult.message}
+                  </p>
+                  <button
+                    onClick={handleAnalyzeMobileFriendly}
+                    disabled={isAnalyzingMobileFriendly}
+                    className="px-6 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+                  >
+                    {isAnalyzingMobileFriendly ? 'Analyzing...' : 'Try Again'}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="mb-4">
+                <svg className="mx-auto h-12 w-12 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Click Mobile-Friendly Tab to Analyze</h3>
+              <p className="text-gray-500">Switch to the Mobile-Friendly tab to automatically analyze mobile-friendliness.</p>
             </div>
           )}
         </>
@@ -1121,6 +1289,409 @@ const TechStackDisplay = ({ data }) => {
             (data.competitor?.advertisingNetworks?.length || 0) +
             (data.competitor?.abTesting?.length || 0)
           }</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Security Headers Display Component
+const SecurityHeadersDisplay = ({ data }) => {
+  const renderHeaderStatus = (header, title, description) => {
+    const isPresent = header.present;
+    const statusIcon = isPresent ? '✓' : '✗';
+    
+    return (
+      <div className={`p-4 rounded-lg border ${
+        isPresent ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+      }`}>
+        <div className="flex items-start justify-between mb-2">
+          <h5 className={`font-medium ${isPresent ? 'text-green-800' : 'text-red-800'}`}>
+            {title}
+          </h5>
+          <span className={`text-lg font-bold ${isPresent ? 'text-green-600' : 'text-red-600'}`}>
+            {statusIcon}
+          </span>
+        </div>
+        <p className={`text-sm mb-2 ${isPresent ? 'text-green-700' : 'text-red-700'}`}>
+          {header.description}
+        </p>
+        {header.value && (
+          <div className="mt-2">
+            <p className="text-xs text-gray-600 mb-1">Header Value:</p>
+            <code className="text-xs bg-gray-100 p-2 rounded block break-all">
+              {header.value}
+            </code>
+          </div>
+        )}
+        <p className={`text-xs mt-2 ${isPresent ? 'text-green-600' : 'text-red-600'}`}>
+          {header.recommendation}
+        </p>
+      </div>
+    );
+  };
+
+  const getSecurityScoreColor = (score) => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-yellow-600';
+    if (score >= 40) return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  const getSecurityScoreBg = (score) => {
+    if (score >= 80) return 'bg-green-50 border-green-200';
+    if (score >= 60) return 'bg-yellow-50 border-yellow-200';
+    if (score >= 40) return 'bg-orange-50 border-orange-200';
+    return 'bg-red-50 border-red-200';
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Security Score Summary */}
+      <div className={`p-4 rounded-lg border ${getSecurityScoreBg(data.summary.securityScore)}`}>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-medium text-gray-800">Security Score</h4>
+          <span className={`text-2xl font-bold ${getSecurityScoreColor(data.summary.securityScore)}`}>
+            {data.summary.securityScore}/100
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600">
+            {data.summary.totalHeaders} of 6 security headers present
+          </span>
+          <span className={`font-medium ${getSecurityScoreColor(data.summary.securityScore)}`}>
+            {data.summary.overallStatus}
+          </span>
+        </div>
+      </div>
+
+      {/* HTTPS Status */}
+      <div className={`p-4 rounded-lg border ${
+        data.https.enabled ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+      }`}>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className={`font-medium ${data.https.enabled ? 'text-green-800' : 'text-red-800'}`}>
+            HTTPS / SSL
+          </h4>
+          <span className={`text-lg font-bold ${data.https.enabled ? 'text-green-600' : 'text-red-600'}`}>
+            {data.https.enabled ? '✓' : '✗'}
+          </span>
+        </div>
+        <p className={`text-sm ${data.https.enabled ? 'text-green-700' : 'text-red-700'}`}>
+          {data.https.description}
+        </p>
+      </div>
+
+      {/* Security Headers Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {renderHeaderStatus(data.hsts, 'Strict-Transport-Security (HSTS)', 'Prevents downgrade attacks')}
+        {renderHeaderStatus(data.csp, 'Content-Security-Policy (CSP)', 'Prevents XSS attacks')}
+        {renderHeaderStatus(data.xFrameOptions, 'X-Frame-Options', 'Prevents clickjacking')}
+        {renderHeaderStatus(data.xContentTypeOptions, 'X-Content-Type-Options', 'Blocks MIME sniffing')}
+        {renderHeaderStatus(data.referrerPolicy, 'Referrer-Policy', 'Protects sensitive referral data')}
+        {renderHeaderStatus(data.permissionsPolicy, 'Permissions-Policy', 'Restricts features like camera/microphone')}
+      </div>
+
+      {/* Recommendations */}
+      {data.summary.recommendations.length > 0 && (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h4 className="font-medium text-yellow-800 mb-3">Security Recommendations</h4>
+          <ul className="space-y-2">
+            {data.summary.recommendations.map((recommendation, index) => (
+              <li key={index} className="flex items-start">
+                <span className="text-yellow-600 mr-2 mt-1">•</span>
+                <span className="text-sm text-yellow-700">{recommendation}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Analysis Summary */}
+      <div className="p-4 bg-gray-50 rounded-lg">
+        <h4 className="font-medium text-gray-800 mb-2">Analysis Summary</h4>
+        <div className="text-sm text-gray-600">
+          <p>Analysis completed at: {new Date(data.timestamp).toLocaleString()}</p>
+          <p>Website URL: {data.url}</p>
+          <p>Overall Security Status: <span className="font-medium">{data.summary.overallStatus}</span></p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Mobile-Friendly Display Component
+const MobileFriendlyDisplay = ({ data }) => {
+  const renderIssue = (issue, index) => (
+    <div key={index} className="flex items-start p-3 bg-red-50 border border-red-200 rounded-lg">
+      <svg className="w-5 h-5 text-red-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+      </svg>
+      <span className="text-red-800 font-medium">{issue}</span>
+    </div>
+  );
+
+  const renderScreenshot = (screenshot, index) => (
+    <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+      <h5 className="font-medium text-gray-800 mb-2">{screenshot.description}</h5>
+      <img 
+        src={`data:${screenshot.mimeType};base64,${screenshot.data}`} 
+        alt="Mobile view screenshot"
+        className="w-full max-w-md mx-auto border border-gray-300 rounded-lg shadow-sm"
+      />
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Mobile-Friendliness Verdict */}
+      <div className={`border rounded-lg p-6 ${
+        data.verdict === 'MOBILE_FRIENDLY' 
+          ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
+          : 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-gray-800">Mobile-Friendliness Verdict</h3>
+            <p className="text-gray-600">Based on Google's Mobile-Friendly Test</p>
+          </div>
+          <div className="text-right">
+            <div className={`text-2xl font-bold ${
+              data.verdict === 'MOBILE_FRIENDLY' ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {data.verdict === 'MOBILE_FRIENDLY' ? '✅ Mobile-Friendly' : '❌ Not Mobile-Friendly'}
+            </div>
+            <div className="text-sm text-gray-600">
+              {data.verdict === 'MOBILE_FRIENDLY' ? 'Great job!' : 'Needs improvement'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Issues List */}
+      {data.issues && data.issues.length > 0 && (
+        <div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Issues Found</h4>
+          <div className="space-y-3">
+            {data.issues.map((issue, index) => renderIssue(issue, index))}
+          </div>
+        </div>
+      )}
+
+      {/* Screenshots */}
+      {data.screenshots && data.screenshots.length > 0 && (
+        <div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Mobile View Screenshots</h4>
+          <div className="space-y-4">
+            {data.screenshots.map((screenshot, index) => renderScreenshot(screenshot, index))}
+          </div>
+        </div>
+      )}
+
+      {/* Recommendations */}
+      {data.recommendations && data.recommendations.length > 0 && (
+        <div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Recommendations</h4>
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <ul className="space-y-2">
+              {data.recommendations.map((rec, index) => (
+                <li key={index} className="flex items-start">
+                  <svg className="w-5 h-5 text-orange-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span className="text-orange-800">{rec}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Details Breakdown */}
+      {data.details && (
+        <div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Detailed Analysis</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.entries(data.details).map(([key, value]) => (
+              <div key={key} className={`p-3 rounded-lg border ${
+                value ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-800">
+                    {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                  </span>
+                  <span className={`text-sm font-medium ${
+                    value ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {value ? 'Issue Found' : 'Passed'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Core Web Vitals Display Component
+const CoreWebVitalsDisplay = ({ data }) => {
+  const renderMetricCard = (title, metric, color = 'blue') => {
+    if (!metric || metric.total === 0) return null;
+    
+    const goodPercentage = Math.round((metric.good / metric.total) * 100);
+    const needsImprovementPercentage = Math.round((metric.needsImprovement / metric.total) * 100);
+    const poorPercentage = Math.round((metric.poor / metric.total) * 100);
+    
+    const getScoreColor = (percentage) => {
+      if (percentage >= 75) return 'text-green-600';
+      if (percentage >= 50) return 'text-yellow-600';
+      return 'text-red-600';
+    };
+
+    return (
+      <div className={`border rounded-lg p-4 bg-${color}-50 border-${color}-200`}>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="font-medium text-gray-800">{title}</h4>
+          <span className={`text-lg font-bold ${getScoreColor(goodPercentage)}`}>
+            {goodPercentage}%
+          </span>
+        </div>
+        
+        <div className="mb-2">
+          <div className="flex justify-between text-sm text-gray-600 mb-1">
+            <span>Good: {goodPercentage}%</span>
+            <span>{metric.p75.toFixed(0)}ms (75th percentile)</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${goodPercentage}%` }}></div>
+            <div className="bg-yellow-500 h-2 rounded-full -mt-2" style={{ width: `${needsImprovementPercentage}%`, marginLeft: `${goodPercentage}%` }}></div>
+            <div className="bg-red-500 h-2 rounded-full -mt-2" style={{ width: `${poorPercentage}%`, marginLeft: `${goodPercentage + needsImprovementPercentage}%` }}></div>
+          </div>
+        </div>
+        
+        <div className="text-xs text-gray-500">
+          <div className="flex justify-between">
+            <span>Needs Improvement: {needsImprovementPercentage}%</span>
+            <span>Poor: {poorPercentage}%</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFormFactorSection = (title, metrics, icon) => {
+    if (!metrics) return null;
+    
+    return (
+      <div className="mb-8">
+        <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+          {icon}
+          {title}
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {renderMetricCard('Largest Contentful Paint (LCP)', metrics.lcp, 'blue')}
+          {renderMetricCard('Cumulative Layout Shift (CLS)', metrics.cls, 'purple')}
+          {renderMetricCard('Interaction to Next Paint (INP)', metrics.inp, 'green')}
+          {renderMetricCard('First Input Delay (FID)', metrics.fid, 'yellow')}
+          {renderMetricCard('Time to First Byte (TTFB)', metrics.ttfb, 'red')}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Overall Score */}
+      <div className={`border rounded-lg p-6 ${
+        data.summary.overallScore >= 90 
+          ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
+          : data.summary.overallScore >= 75
+          ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200'
+          : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-gray-800">Core Web Vitals Score</h3>
+            <p className="text-gray-600">Based on real user data from Chrome UX Report</p>
+          </div>
+          <div className="text-right">
+            <div className={`text-4xl font-bold ${
+              data.summary.overallScore >= 90 ? 'text-green-600' : 
+              data.summary.overallScore >= 75 ? 'text-yellow-600' : 'text-red-600'
+            }`}>
+              {data.summary.overallScore}/100
+            </div>
+            <div className="text-sm text-gray-600">
+              {data.summary.status}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Data Coverage */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h4 className="font-medium text-blue-800 mb-2">Data Coverage</h4>
+        <p className="text-blue-700 text-sm">
+          Analysis based on {data.recordCount.toLocaleString()} real user page views from Chrome users over the last 28 days.
+        </p>
+      </div>
+
+      {/* Mobile Metrics (Primary) */}
+      {renderFormFactorSection(
+        'Mobile Performance (Primary)',
+        data.formFactors.mobile,
+        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+        </svg>
+      )}
+
+      {/* Desktop Metrics */}
+      {renderFormFactorSection(
+        'Desktop Performance',
+        data.formFactors.desktop,
+        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+        </svg>
+      )}
+
+      {/* Tablet Metrics */}
+      {renderFormFactorSection(
+        'Tablet Performance',
+        data.formFactors.tablet,
+        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+        </svg>
+      )}
+
+      {/* Recommendations */}
+      {data.summary.recommendations && data.summary.recommendations.length > 0 && (
+        <div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Recommendations</h4>
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <ul className="space-y-2">
+              {data.summary.recommendations.map((rec, index) => (
+                <li key={index} className="flex items-start">
+                  <svg className="w-5 h-5 text-green-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span className="text-green-800">{rec}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Analysis Info */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h4 className="font-medium text-gray-800 mb-2">Analysis Information</h4>
+        <div className="text-sm text-gray-600 space-y-1">
+          <p>• Data source: Chrome UX Report (CrUX) - Real user metrics</p>
+          <p>• Time period: Last 28 days</p>
+          <p>• Coverage: {data.origin || data.url}</p>
+          <p>• Analysis timestamp: {new Date(data.timestamp).toLocaleString()}</p>
         </div>
       </div>
     </div>

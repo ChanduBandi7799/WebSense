@@ -83,4 +83,37 @@ export class WebsiteAnalysisController {
     // Test with a simple, reliable website
     return this.service.analyzeTechStack('https://www.google.com');
   }
+
+  @Post('security-headers')
+  async analyzeSecurityHeaders(@Body() data: { url: string }) {
+    return this.service.analyzeSecurityHeaders(data.url);
+  }
+
+  @Get('test-security-headers')
+  async testSecurityHeaders() {
+    // Test with a simple, reliable website
+    return this.service.analyzeSecurityHeaders('https://www.google.com');
+  }
+
+  @Post('mobile-friendly')
+  async analyzeMobileFriendly(@Body() data: { url: string }) {
+    return this.service.analyzeMobileFriendly(data.url);
+  }
+
+  @Get('test-mobile-friendly')
+  async testMobileFriendly() {
+    // Test with a simple, reliable website
+    return this.service.analyzeMobileFriendly('https://www.google.com');
+  }
+
+  @Post('core-web-vitals')
+  async analyzeCoreWebVitals(@Body() data: { url: string }) {
+    return this.service.analyzeCoreWebVitals(data.url);
+  }
+
+  @Get('test-core-web-vitals')
+  async testCoreWebVitals() {
+    // Test with a simple, reliable website
+    return this.service.analyzeCoreWebVitals('https://www.google.com');
+  }
 }

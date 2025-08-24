@@ -48,12 +48,12 @@ export const analyzeWebsite = async (url) => {
   }
 };
 
-// PageSpeed Insights analysis - Updated to match new endpoint
-export const analyzeWebsiteWithPageSpeed = async (url) => {
+// Core Web Vitals (CrUX) analysis - Real user metrics from Chrome UX Report
+export const analyzeCoreWebVitals = async (url) => {
   try {
-    console.log('Starting PSI analysis for:', url);
+    console.log('Starting Core Web Vitals analysis for:', url);
     
-    const response = await fetch(`${API_URL}/api/analyze/pagespeed`, {
+    const response = await fetch(`${API_URL}/api/analyze/core-web-vitals`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -69,11 +69,11 @@ export const analyzeWebsiteWithPageSpeed = async (url) => {
     }
     
     const result = await response.json();
-    console.log('PSI analysis result:', result);
+    console.log('Core Web Vitals analysis result:', result);
     
     return result;
   } catch (error) {
-    console.error('Error analyzing website with PageSpeed:', error);
+    console.error('Error analyzing Core Web Vitals:', error);
     throw error;
   }
 };
@@ -127,6 +127,60 @@ export const analyzeTechStack = async (url) => {
     return result;
   } catch (error) {
     console.error('Error analyzing tech stack:', error);
+    throw error;
+  }
+};
+
+// Security Headers Analysis
+export const analyzeSecurityHeaders = async (url) => {
+  try {
+    console.log('Starting security headers analysis for:', url);
+    
+    const response = await fetch(`${API_URL}/api/analyze/security-headers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    
+    const result = await response.json();
+    console.log('Security headers analysis result:', result);
+    
+    return result;
+  } catch (error) {
+    console.error('Error analyzing security headers:', error);
+    throw error;
+  }
+};
+
+// Mobile-Friendly Test Analysis
+export const analyzeMobileFriendly = async (url) => {
+  try {
+    console.log('Starting mobile-friendly test analysis for:', url);
+    
+    const response = await fetch(`${API_URL}/api/analyze/mobile-friendly`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    
+    const result = await response.json();
+    console.log('Mobile-friendly test analysis result:', result);
+    
+    return result;
+  } catch (error) {
+    console.error('Error analyzing mobile-friendliness:', error);
     throw error;
   }
 };
