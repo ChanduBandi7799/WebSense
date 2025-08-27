@@ -29,6 +29,7 @@ export const fetchHello = async () => {
 // Lighthouse analysis - Updated to match new endpoint
 export const analyzeWebsite = async (url) => {
   try {
+    console.log(`Analyzing website: ${url}`);
     const response = await fetch(`${API_URL}/api/analyze/lighthouse`, {
       method: 'POST',
       headers: {
@@ -38,10 +39,25 @@ export const analyzeWebsite = async (url) => {
     });
     
     if (!response.ok) {
-      throw new Error('Network response was not ok');
+      const errorData = await response.json().catch(() => null);
+      if (errorData && errorData.message) {
+        throw new Error(errorData.message);
+      } else if (response.status === 404) {
+        throw new Error('API endpoint not found. The server may be misconfigured.');
+      } else if (response.status === 400) {
+        throw new Error('Invalid URL format. Please enter a valid website URL.');
+      } else if (response.status === 429) {
+        throw new Error('Too many requests. Please try again later.');
+      } else if (response.status >= 500) {
+        throw new Error('Server error. The analysis service is currently unavailable.');
+      } else {
+        throw new Error(`Request failed with status: ${response.status}`);
+      }
     }
     
-    return await response.json();
+    const data = await response.json();
+    console.log('Lighthouse analysis complete:', data);
+    return data;
   } catch (error) {
     console.error('Error analyzing website with Lighthouse:', error);
     throw error;
@@ -51,7 +67,7 @@ export const analyzeWebsite = async (url) => {
 // Core Web Vitals (CrUX) analysis - Real user metrics from Chrome UX Report
 export const analyzeCoreWebVitals = async (url) => {
   try {
-    console.log('Starting Core Web Vitals analysis for:', url);
+    console.log(`Analyzing Core Web Vitals for: ${url}`);
     
     const response = await fetch(`${API_URL}/api/analyze/core-web-vitals`, {
       method: 'POST',
@@ -62,16 +78,25 @@ export const analyzeCoreWebVitals = async (url) => {
     });
     
     if (!response.ok) {
-      if (response.status === 403) {
-        throw new Error('API key error. Please try again later');
+      const errorData = await response.json().catch(() => null);
+      if (errorData && errorData.message) {
+        throw new Error(errorData.message);
+      } else if (response.status === 404) {
+        throw new Error('Core Web Vitals API endpoint not found. The server may be misconfigured.');
+      } else if (response.status === 400) {
+        throw new Error('Invalid URL format. Please enter a valid website URL.');
+      } else if (response.status === 429) {
+        throw new Error('Too many requests. Please try again later.');
+      } else if (response.status >= 500) {
+        throw new Error('Server error. The Core Web Vitals analysis service is currently unavailable.');
+      } else {
+        throw new Error(`Request failed with status: ${response.status}`);
       }
-      throw new Error('Network response was not ok');
     }
     
-    const result = await response.json();
-    console.log('Core Web Vitals analysis result:', result);
-    
-    return result;
+    const data = await response.json();
+    console.log('Core Web Vitals analysis complete:', data);
+    return data;
   } catch (error) {
     console.error('Error analyzing Core Web Vitals:', error);
     throw error;
@@ -81,23 +106,30 @@ export const analyzeCoreWebVitals = async (url) => {
 // Test website accessibility
 export const testWebsiteAccessibility = async (url) => {
   try {
-    console.log('Testing website accessibility for:', url);
-    
-    const response = await fetch(`${API_URL}/api/analyze/test-website/${encodeURIComponent(url)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    console.log(`Testing accessibility for: ${url}`);
+    const encodedUrl = encodeURIComponent(url);
+    const response = await fetch(`${API_URL}/api/analyze/test-website/${encodedUrl}`);
     
     if (!response.ok) {
-      throw new Error('Network response was not ok');
+      const errorData = await response.json().catch(() => null);
+      if (errorData && errorData.message) {
+        throw new Error(errorData.message);
+      } else if (response.status === 404) {
+        throw new Error('Accessibility testing API endpoint not found. The server may be misconfigured.');
+      } else if (response.status === 400) {
+        throw new Error('Invalid URL format. Please enter a valid website URL.');
+      } else if (response.status === 429) {
+        throw new Error('Too many requests. Please try again later.');
+      } else if (response.status >= 500) {
+        throw new Error('Server error. The accessibility testing service is currently unavailable.');
+      } else {
+        throw new Error(`Request failed with status: ${response.status}`);
+      }
     }
     
-    const result = await response.json();
-    console.log('Website accessibility test result:', result);
-    
-    return result;
+    const data = await response.json();
+    console.log('Accessibility test complete:', data);
+    return data;
   } catch (error) {
     console.error('Error testing website accessibility:', error);
     throw error;
@@ -107,7 +139,7 @@ export const testWebsiteAccessibility = async (url) => {
 // Tech Stack Analysis using Wappalyzer
 export const analyzeTechStack = async (url) => {
   try {
-    console.log('Starting tech stack analysis for:', url);
+    console.log('Analyzing tech stack for:', url);
     
     const response = await fetch(`${API_URL}/api/analyze/tech-stack`, {
       method: 'POST',
@@ -118,13 +150,25 @@ export const analyzeTechStack = async (url) => {
     });
     
     if (!response.ok) {
-      throw new Error('Network response was not ok');
+      const errorData = await response.json().catch(() => null);
+      if (errorData && errorData.message) {
+        throw new Error(errorData.message);
+      } else if (response.status === 404) {
+        throw new Error('Tech stack API endpoint not found. The server may be misconfigured.');
+      } else if (response.status === 400) {
+        throw new Error('Invalid URL format. Please enter a valid website URL.');
+      } else if (response.status === 429) {
+        throw new Error('Too many requests. Please try again later.');
+      } else if (response.status >= 500) {
+        throw new Error('Server error. The tech stack analysis service is currently unavailable.');
+      } else {
+        throw new Error(`Request failed with status: ${response.status}`);
+      }
     }
     
-    const result = await response.json();
-    console.log('Tech stack analysis result:', result);
-    
-    return result;
+    const data = await response.json();
+    console.log('Tech stack analysis complete:', data);
+    return data;
   } catch (error) {
     console.error('Error analyzing tech stack:', error);
     throw error;
@@ -134,7 +178,7 @@ export const analyzeTechStack = async (url) => {
 // Security Headers Analysis
 export const analyzeSecurityHeaders = async (url) => {
   try {
-    console.log('Starting security headers analysis for:', url);
+    console.log('Analyzing security headers for:', url);
     
     const response = await fetch(`${API_URL}/api/analyze/security-headers`, {
       method: 'POST',
@@ -145,13 +189,25 @@ export const analyzeSecurityHeaders = async (url) => {
     });
     
     if (!response.ok) {
-      throw new Error('Network response was not ok');
+      const errorData = await response.json().catch(() => null);
+      if (errorData && errorData.message) {
+        throw new Error(errorData.message);
+      } else if (response.status === 404) {
+        throw new Error('Security headers API endpoint not found. The server may be misconfigured.');
+      } else if (response.status === 400) {
+        throw new Error('Invalid URL format. Please enter a valid website URL.');
+      } else if (response.status === 429) {
+        throw new Error('Too many requests. Please try again later.');
+      } else if (response.status >= 500) {
+        throw new Error('Server error. The security headers analysis service is currently unavailable.');
+      } else {
+        throw new Error(`Request failed with status: ${response.status}`);
+      }
     }
     
-    const result = await response.json();
-    console.log('Security headers analysis result:', result);
-    
-    return result;
+    const data = await response.json();
+    console.log('Security headers analysis complete:', data);
+    return data;
   } catch (error) {
     console.error('Error analyzing security headers:', error);
     throw error;
@@ -161,7 +217,7 @@ export const analyzeSecurityHeaders = async (url) => {
 // Mobile-Friendly Test Analysis
 export const analyzeMobileFriendly = async (url) => {
   try {
-    console.log('Starting mobile-friendly test analysis for:', url);
+    console.log('Analyzing mobile-friendliness for:', url);
     
     const response = await fetch(`${API_URL}/api/analyze/mobile-friendly`, {
       method: 'POST',
@@ -172,13 +228,25 @@ export const analyzeMobileFriendly = async (url) => {
     });
     
     if (!response.ok) {
-      throw new Error('Network response was not ok');
+      const errorData = await response.json().catch(() => null);
+      if (errorData && errorData.message) {
+        throw new Error(errorData.message);
+      } else if (response.status === 404) {
+        throw new Error('Mobile-friendly API endpoint not found. The server may be misconfigured.');
+      } else if (response.status === 400) {
+        throw new Error('Invalid URL format. Please enter a valid website URL.');
+      } else if (response.status === 429) {
+        throw new Error('Too many requests. Please try again later.');
+      } else if (response.status >= 500) {
+        throw new Error('Server error. The mobile-friendly analysis service is currently unavailable.');
+      } else {
+        throw new Error(`Request failed with status: ${response.status}`);
+      }
     }
     
-    const result = await response.json();
-    console.log('Mobile-friendly test analysis result:', result);
-    
-    return result;
+    const data = await response.json();
+    console.log('Mobile-friendly analysis complete:', data);
+    return data;
   } catch (error) {
     console.error('Error analyzing mobile-friendliness:', error);
     throw error;
