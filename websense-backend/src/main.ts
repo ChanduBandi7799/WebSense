@@ -14,7 +14,9 @@ async function bootstrap() {
     
     // Enable CORS
     app.enableCors({
-      origin: config.frontendUrl,
+      origin: process.env.NODE_ENV === 'production' 
+        ? 'https://your-render-frontend-url.onrender.com' 
+        : config.frontendUrl,
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
       credentials: true,
     });
