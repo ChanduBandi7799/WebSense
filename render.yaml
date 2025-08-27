@@ -1,5 +1,5 @@
 services:
-  # Backend API
+  # Backend API (NestJS)
   - type: web
     name: websense-backend
     env: node
@@ -7,7 +7,7 @@ services:
       cd websense-backend
       npm install
       npm run build
-    startCommand: cd websense-backend && npm run start:prod
+    startCommand: cd websense-backend && npm run start:dev
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,7 +15,7 @@ services:
         value: 3001
     plan: free
 
-  # Frontend App
+  # Frontend App (React)
   - type: web
     name: websense-frontend
     env: static
