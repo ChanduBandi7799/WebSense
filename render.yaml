@@ -11,6 +11,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 3001
     plan: free
 
   # Frontend App
@@ -21,11 +23,15 @@ services:
       cd websense-frontend
       npm install
       npm run build
-    staticPublishPath: ./websense-frontend/build
+    staticPublishPath: websense-frontend/build
     envVars:
       - key: REACT_APP_API_URL
         fromService:
           name: websense-backend
           type: web
           property: url
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     plan: free
