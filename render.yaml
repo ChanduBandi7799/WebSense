@@ -1,25 +1,31 @@
 services:
   # Backend API
   - type: web
-    name: websense-api
+    name: websense-backend
     env: node
-    buildCommand: cd websense-backend && npm install && npm run build
+    buildCommand: |
+      cd websense-backend
+      npm install
+      npm run build
     startCommand: cd websense-backend && npm run start:prod
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3001
+    plan: free
 
   # Frontend App
   - type: web
     name: websense-frontend
     env: static
-    buildCommand: cd websense-frontend && npm install && npm run build
+    buildCommand: |
+      cd websense-frontend
+      npm install
+      npm run build
     staticPublishPath: ./websense-frontend/build
     envVars:
       - key: REACT_APP_API_URL
         fromService:
-          name: websense-api
+          name: websense-backend
           type: web
           property: url
+    plan: free
