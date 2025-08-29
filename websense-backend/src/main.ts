@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -14,9 +15,7 @@ async function bootstrap() {
     
     // Enable CORS
     app.enableCors({
-      origin: process.env.NODE_ENV === 'production' 
-        ? 'https://your-render-frontend-url.onrender.com' 
-        : config.frontendUrl,
+      origin: config.frontendUrl,
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
       credentials: true,
     });

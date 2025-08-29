@@ -1,6 +1,5 @@
 export default () => ({
   port: parseInt(process.env.PORT || '3001', 10),
-  psiApiKey: process.env.PSI_API_KEY || 'AIzaSyD16688gvT2z1PLldcS4LVKu2Bhfa234kE',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
   environment: process.env.NODE_ENV || 'development',
   lighthouse: {

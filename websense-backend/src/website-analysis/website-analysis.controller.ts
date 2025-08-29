@@ -10,17 +10,6 @@ export class WebsiteAnalysisController {
     return this.service.runLighthouseAnalysis(data.url);
   }
 
-  @Post('pagespeed')
-  async analyzePageSpeed(@Body() data: { url: string; apiKey?: string }) {
-    return this.service.runPageSpeedAnalysis(data.url, data.apiKey);
-  }
-
-  @Get('test-psi')
-  async testPSI() {
-    // Test with a simple, reliable website
-    return this.service.runPageSpeedAnalysis('https://www.google.com');
-  }
-
   @Get('test-lighthouse')
   async testLighthouse() {
     // Test with a simple, reliable website

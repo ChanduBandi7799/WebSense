@@ -3,7 +3,7 @@
 A comprehensive website performance analysis backend that integrates multiple testing tools:
 
 - **Lighthouse**: Comprehensive performance, accessibility, best practices, SEO, and PWA analysis with loading sequence screenshots
-- **Google PageSpeed Insights**: Official Google performance metrics
+- Core Web Vitals (CrUX) via Google API
 
 ## Setup
 
@@ -20,8 +20,8 @@ Create a `.env` file in the root directory:
 PORT=3001
 FRONTEND_URL=http://localhost:3000
 
-# API Keys
-PSI_API_KEY=your_google_pagespeed_insights_api_key
+# API Keys (required for Mobile-Friendly Test and CrUX)
+GOOGLE_API_KEY=your_google_api_key
 
 # Lighthouse Configuration
 LIGHTHOUSE_TIMEOUT=60000
@@ -57,16 +57,9 @@ POST /api/analyze/lighthouse
 Body: { "url": "https://example.com" }
 ```
 
-### PageSpeed Insights Analysis
-```
-POST /api/analyze/pagespeed
-Body: { "url": "https://example.com", "apiKey": "optional" }
-```
-
 ### Test Endpoints
 ```
 GET /api/analyze/test-lighthouse
-GET /api/analyze/test-psi
 ```
 
 ## Features

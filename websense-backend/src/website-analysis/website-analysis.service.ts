@@ -6,8 +6,7 @@ import * as path from 'path';
 import * as https from 'https';
 
 const execAsync = promisify(exec);
-// Default PageSpeed Insights API key - you should set this as an environment variable
-const DEFAULT_PSI_API_KEY = process.env.PSI_API_KEY || 'AIzaSyD16688gvT2z1PLldcS4LVKu2Bhfa234kE';
+// 
 
 @Injectable()
 export class WebsiteAnalysisService {
@@ -49,8 +48,10 @@ export class WebsiteAnalysisService {
         console.log('No global Lighthouse installation found');
       }
       
-      // Run Lighthouse using the CLI with better error handling and enhanced screenshot capture
-      let command = `npx lighthouse ${url} --output=json --output-path=${reportPath} --chrome-flags="--headless --no-sandbox --disable-gpu --disable-dev-shm-usage" --timeout=60000 --preset=desktop --only-categories=performance,accessibility,best-practices,seo,pwa --screenshots --save-assets --max-wait-for-load=30000 --throttling-method=devtools`;
+      // Run Lighthouse using the CLI with better error handling and Windows-safe quoting
+      const quotedUrl = `"${url}"`;
+      const quotedReportPath = `"${reportPath.replace(/"/g, '\\"')}"`;
+      let command = `npx lighthouse ${quotedUrl} --output=json --output-path=${quotedReportPath} --chrome-flags=\"--headless --no-sandbox --disable-gpu --disable-dev-shm-usage\" --timeout=60000 --preset=desktop --only-categories=performance,accessibility,best-practices,seo,pwa --max-wait-for-load=30000 --throttling-method=devtools`;
       
       console.log(`Executing command: ${command}`);
       
@@ -85,7 +86,7 @@ export class WebsiteAnalysisService {
         // Try alternative command if first one fails
         if (execError.message.includes('timeout') || execError.message.includes('ECONNREFUSED')) {
           console.log('Trying alternative Lighthouse command...');
-          command = `npx lighthouse ${url} --output=json --output-path=${reportPath} --chrome-flags="--headless --no-sandbox" --timeout=30000`;
+          command = `npx lighthouse ${quotedUrl} --output=json --output-path=${quotedReportPath} --chrome-flags=\"--headless --no-sandbox\" --timeout=30000 --preset=desktop`;
           
           try {
             const { stdout, stderr } = await execAsync(command);
@@ -281,204 +282,6 @@ export class WebsiteAnalysisService {
     }
   }
   
-  // Real PageSpeed Insights API implementation
-  async runPageSpeedAnalysis(url: string, apiKey?: string) {
-    try {
-      console.log(`Starting PageSpeed Insights analysis for: ${url}`);
-      
-      // Validate URL
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url;
-      }
-      
-      // Use provided API key or default
-      const psiApiKey = apiKey || DEFAULT_PSI_API_KEY;
-      
-      if (!psiApiKey || psiApiKey === 'AIzaSyD16688gvT2z1PLldcS4LVKu2Bhfa234kE') {
-        console.warn('Using default PSI API key. Consider setting PSI_API_KEY environment variable.');
-      }
-      
-      // Log API key info (masked for security)
-      const maskedKey = psiApiKey.substring(0, 10) + '...' + psiApiKey.substring(psiApiKey.length - 4);
-      console.log(`Using PSI API key: ${maskedKey}`);
-      
-      // Create API URL with API key - no category restriction to get ALL data
-      const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&key=${psiApiKey}&strategy=mobile`;
-      
-      console.log(`Making PSI API request to: ${apiUrl.replace(psiApiKey, '***')}`);
-      
-      // Make the API request
-      const response = await this.makeHttpRequest(apiUrl);
-      console.log('PSI API raw response length:', response.length);
-      
-      const reportData = JSON.parse(response);
-      console.log('PSI API parsed response keys:', Object.keys(reportData));
-      
-      // Check if the analysis failed
-      if (reportData.error) {
-        console.error('PageSpeed Insights API error:', reportData.error);
-        
-        // Handle specific error cases
-        let errorMessage = reportData.error.message || 'API request failed';
-        
-        if (reportData.error.code === 403) {
-          errorMessage = 'API key is invalid or has exceeded quota. Please check your API key.';
-        } else if (reportData.error.code === 429) {
-          errorMessage = 'API rate limit exceeded. Please try again later.';
-        } else if (reportData.error.code === 400) {
-          errorMessage = 'Invalid request. Please check the URL format.';
-        }
-        
-        return {
-          url: url,
-          error: true,
-          message: errorMessage
-        };
-      }
-      
-      // Validate that we have the expected data structure
-      if (!reportData.lighthouseResult || !reportData.lighthouseResult.categories) {
-        console.error('PageSpeed Insights API returned unexpected data structure:', reportData);
-        return {
-          url: url,
-          error: true,
-          message: 'API returned unexpected data structure'
-        };
-      }
-      
-      console.log('PSI lighthouseResult keys:', Object.keys(reportData.lighthouseResult));
-      console.log('PSI categories keys:', Object.keys(reportData.lighthouseResult.categories));
-      console.log('PSI categories data:', JSON.stringify(reportData.lighthouseResult.categories, null, 2));
-      
-      // Log all category scores
-      if (reportData.lighthouseResult.categories) {
-        console.log('PSI Performance score:', reportData.lighthouseResult.categories.performance?.score);
-        console.log('PSI Accessibility score:', reportData.lighthouseResult.categories.accessibility?.score);
-        console.log('PSI Best Practices score:', reportData.lighthouseResult.categories['best-practices']?.score);
-        console.log('PSI SEO score:', reportData.lighthouseResult.categories.seo?.score);
-        console.log('PSI PWA score:', reportData.lighthouseResult.categories.pwa?.score);
-        
-        // Check if categories exist but scores are null
-        console.log('PSI Performance category exists:', !!reportData.lighthouseResult.categories.performance);
-        console.log('PSI Accessibility category exists:', !!reportData.lighthouseResult.categories.accessibility);
-        console.log('PSI Best Practices category exists:', !!reportData.lighthouseResult.categories['best-practices']);
-        console.log('PSI SEO category exists:', !!reportData.lighthouseResult.categories.seo);
-        console.log('PSI PWA category exists:', !!reportData.lighthouseResult.categories.pwa);
-        
-        // Check if we're missing categories
-        const missingCategories: string[] = [];
-        if (!reportData.lighthouseResult.categories.accessibility) missingCategories.push('accessibility');
-        if (!reportData.lighthouseResult.categories['best-practices']) missingCategories.push('best-practices');
-        if (!reportData.lighthouseResult.categories.seo) missingCategories.push('seo');
-        if (!reportData.lighthouseResult.categories.pwa) missingCategories.push('pwa');
-        
-        if (missingCategories.length > 0) {
-          console.warn(`PSI API missing categories: ${missingCategories.join(', ')}`);
-          console.warn('This might be due to PSI API limitations or the website not having enough data for these categories');
-        }
-      }
-      
-      console.log(`PageSpeed Insights analysis completed successfully for: ${url}`);
-      
-      // Extract ALL category scores and comprehensive data
-      const result = {
-        url: url,
-        // Overall score (performance)
-        score: reportData.lighthouseResult.categories.performance?.score ? 
-               Math.round(reportData.lighthouseResult.categories.performance.score * 100) : 0,
-        
-        // Only include categories that actually exist and have scores
-        categories: (() => {
-          const categories: any = {
-            performance: reportData.lighthouseResult.categories.performance?.score ? 
-                        Math.round(reportData.lighthouseResult.categories.performance.score * 100) : 0
-          };
-          
-          // Add other categories only if they exist and have scores
-          if (reportData.lighthouseResult.categories.accessibility?.score) {
-            categories.accessibility = Math.round(reportData.lighthouseResult.categories.accessibility.score * 100);
-          }
-          
-          if (reportData.lighthouseResult.categories['best-practices']?.score) {
-            categories['best-practices'] = Math.round(reportData.lighthouseResult.categories['best-practices'].score * 100);
-          }
-          
-          if (reportData.lighthouseResult.categories.seo?.score) {
-            categories.seo = Math.round(reportData.lighthouseResult.categories.seo.score * 100);
-          }
-          
-          if (reportData.lighthouseResult.categories.pwa?.score) {
-            categories.pwa = Math.round(reportData.lighthouseResult.categories.pwa.score * 100);
-          }
-          
-          return categories;
-        })(),
-        
-        // Performance metrics
-        firstContentfulPaint: reportData.lighthouseResult.audits?.['first-contentful-paint']?.displayValue || 'N/A',
-        speedIndex: reportData.lighthouseResult.audits?.['speed-index']?.displayValue || 'N/A',
-        largestContentfulPaint: reportData.lighthouseResult.audits?.['largest-contentful-paint']?.displayValue || 'N/A',
-        timeToInteractive: reportData.lighthouseResult.audits?.['interactive']?.displayValue || 'N/A',
-        totalBlockingTime: reportData.lighthouseResult.audits?.['total-blocking-time']?.displayValue || 'N/A',
-        cumulativeLayoutShift: reportData.lighthouseResult.audits?.['cumulative-layout-shift']?.displayValue || 'N/A',
-        
-        // Additional metrics
-        maxPotentialFID: reportData.lighthouseResult.audits?.['max-potential-fid']?.displayValue || 'N/A',
-        serverResponseTime: reportData.lighthouseResult.audits?.['server-response-time']?.displayValue || 'N/A',
-        renderBlockingResources: reportData.lighthouseResult.audits?.['render-blocking-resources']?.displayValue || 'N/A',
-        
-        // Resource analysis
-        resources: this.extractResourceAnalysisFromPSI(reportData.lighthouseResult.audits),
-        
-        // Performance suggestions
-        suggestions: this.extractPerformanceSuggestionsFromPSI(reportData),
-        
-        // Note: PSI typically only provides performance data, so we skip extracting
-        // accessibility, best practices, and SEO issues as they're usually not available
-      };
-      
-      return result;
-    } catch (error) {
-      console.error('PageSpeed Insights analysis error:', error);
-      return {
-        url: url,
-        error: true,
-        message: `Failed to analyze website: ${error.message}`
-      };
-    }
-  }
-  
-  // Helper method to make HTTP requests with better error handling
-  private makeHttpRequest(url: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Request timeout after 30 seconds'));
-      }, 30000);
-      
-      https.get(url, (res) => {
-        clearTimeout(timeout);
-        
-        if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
-          return;
-        }
-        
-        let data = '';
-        
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        
-        res.on('end', () => {
-          resolve(data);
-        });
-      }).on('error', (err) => {
-        clearTimeout(timeout);
-        reject(err);
-      });
-    });
-  }
-  
   // Extract performance suggestions from Lighthouse report
   private extractPerformanceSuggestions(reportData: any): any[] {
     const suggestions: any[] = [];
@@ -548,30 +351,7 @@ export class WebsiteAnalysisService {
     return suggestions.slice(0, 10); // Return top 10 suggestions
   }
   
-  // Extract performance suggestions from PageSpeed Insights
-  private extractPerformanceSuggestionsFromPSI(reportData: any): any[] {
-    const suggestions: any[] = [];
-    
-    try {
-      const audits = reportData.lighthouseResult.audits;
-      
-      for (const key in audits) {
-        const audit = audits[key];
-        if (audit.details && audit.details.type === 'opportunity' && audit.score !== null && audit.score < 1) {
-          suggestions.push({
-            title: audit.title,
-            description: audit.description,
-            score: Math.round(audit.score * 100),
-            savings: audit.displayValue || 'Improvement available'
-          });
-        }
-      }
-    } catch (err) {
-      console.error('Error extracting performance suggestions from PSI:', err);
-    }
-    
-    return suggestions.slice(0, 5); // Return top 5 suggestions
-  }
+  
 
   // Extract accessibility issues from Lighthouse report
   private extractAccessibilityIssues(reportData: any): any[] {
@@ -746,19 +526,7 @@ export class WebsiteAnalysisService {
     return enhancedMetrics;
   }
 
-  // Helper to extract resource analysis from PageSpeed Insights
-  private extractResourceAnalysisFromPSI(audits: any): any {
-    const resources: any = {};
-    if (audits) {
-      resources.totalRequests = audits['network-requests']?.details?.items?.length || 0;
-      resources.totalSize = audits['total-byte-weight']?.displayValue || 'N/A';
-      resources.imageCount = audits['image-elements']?.details?.items?.length || 0;
-      resources.scriptCount = audits['scripts']?.details?.items?.length || 0;
-      resources.stylesheetCount = audits['stylesheets']?.details?.items?.length || 0;
-      resources.fontCount = audits['font-display']?.details?.items?.length || 0;
-    }
-    return resources;
-  }
+  
   
   // Extract screenshots from Lighthouse report
   private extractScreenshots(reportData: any): any[] {
@@ -1515,7 +1283,7 @@ export class WebsiteAnalysisService {
     return analysis;
   }
 
-  // Google Mobile-Friendly Test Analysis
+  // Google Mobile-Friendly Test Analysis (now non-API heuristic)
   async analyzeMobileFriendly(url: string) {
     try {
       console.log(`Starting Google Mobile-Friendly Test analysis for: ${url}`);
@@ -1525,8 +1293,8 @@ export class WebsiteAnalysisService {
         url = 'https://' + url;
       }
 
-      // Use Google's Mobile-Friendly Test API
-      const result = await this.runMobileFriendlyTest(url);
+      // Use non-API heuristic analysis
+      const result = await this.analyzeMobileFriendlyWithoutApi(url);
       
       console.log('Mobile-Friendly Test analysis completed');
       
@@ -1549,7 +1317,7 @@ export class WebsiteAnalysisService {
     }
   }
 
-  // Core Web Vitals (CrUX) Analysis
+  // Core Web Vitals Analysis (non-API via Lighthouse lab data)
   async analyzeCoreWebVitals(url: string) {
     try {
       console.log(`Starting Core Web Vitals (CrUX) analysis for: ${url}`);
@@ -1559,11 +1327,9 @@ export class WebsiteAnalysisService {
         url = 'https://' + url;
       }
 
-      // Extract origin from URL
+      // Original Core Web Vitals (CrUX API)
       const urlObj = new URL(url);
       const origin = urlObj.origin;
-
-      // Use Google's CrUX API
       const result = await this.runCoreWebVitalsAnalysis(origin);
       
       console.log('Core Web Vitals analysis completed');
@@ -1588,10 +1354,106 @@ export class WebsiteAnalysisService {
     }
   }
 
-  // Run Mobile-Friendly Test
+  // Non-API Mobile-Friendly heuristic analysis
+  private async analyzeMobileFriendlyWithoutApi(url: string) {
+    const analysis = {
+      verdict: 'MOBILE_FRIENDLY',
+      issues: [] as string[],
+      screenshots: [] as any[],
+      details: {
+        viewport: false,
+        textSize: false,
+        clickableElements: false,
+        contentWidth: false,
+        plugins: false,
+        responsiveDesign: false,
+        loadingSpeed: false
+      },
+      recommendations: [] as string[]
+    };
+    try {
+      const pageData = await this.getPageData(url) as any;
+      const html = (pageData.html || '').toLowerCase();
+
+      // Viewport
+      if (!html.includes('<meta') || !html.includes('name="viewport"') || !html.includes('width=device-width')) {
+        analysis.issues.push('Viewport not set');
+        analysis.details.viewport = true;
+      }
+
+      // Responsive CSS hints
+      const hasResponsiveCSS = html.includes('@media') || html.includes('max-width') || html.includes('min-width');
+      if (!hasResponsiveCSS) {
+        analysis.issues.push('No responsive design detected');
+        analysis.details.responsiveDesign = true;
+      }
+
+      // Content wider than screen indicators
+      if (html.includes('width=') && html.includes('px')) {
+        analysis.issues.push('Content wider than screen');
+        analysis.details.contentWidth = true;
+      }
+
+      // Legible font sizes (rough heuristic)
+      if (html.includes('font-size:') && html.match(/font-size:\s*(1[0-5]px|[0-9]px)/)) {
+        analysis.issues.push('Text too small to read');
+        analysis.details.textSize = true;
+      }
+
+      // Tap targets (heuristic)
+      if (html.includes('padding:') && html.match(/padding:\s*0(px)?/)) {
+        analysis.issues.push('Clickable elements too close');
+        analysis.details.clickableElements = true;
+      }
+
+      // Plugins
+      if (html.includes('<object') || html.includes('.swf') || html.includes('flash')) {
+        analysis.issues.push('Incompatible plugins detected');
+        analysis.details.plugins = true;
+      }
+
+      // Verdict
+      if (analysis.issues.length > 0) {
+        analysis.verdict = 'NOT_MOBILE_FRIENDLY';
+      }
+
+      // Recommendations based on issues
+      if (analysis.details.viewport) {
+        analysis.recommendations.push('Add viewport meta tag: <meta name="viewport" content="width=device-width, initial-scale=1.0">');
+      }
+      if (analysis.details.responsiveDesign) {
+        analysis.recommendations.push('Implement responsive design using CSS media queries');
+      }
+      if (analysis.details.contentWidth) {
+        analysis.recommendations.push('Use flexible layouts with percentage-based widths');
+      }
+      if (analysis.details.textSize) {
+        analysis.recommendations.push('Use larger font sizes (minimum 16px) for mobile readability');
+      }
+      if (analysis.details.clickableElements) {
+        analysis.recommendations.push('Ensure clickable elements have adequate spacing (minimum 44px)');
+      }
+      if (analysis.details.plugins) {
+        analysis.recommendations.push('Remove or replace Flash and other incompatible plugins');
+      }
+
+      return analysis;
+    } catch (error) {
+      console.error('Heuristic mobile-friendly analysis failed:', error);
+      throw new Error('Unable to analyze page content');
+    }
+  }
+
+  // Run Mobile-Friendly Test (kept for reference, unused)
   private async runMobileFriendlyTest(url: string) {
-    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyCXvKjP-5USQMsLQkcXCNK7qvXyrEgHvJM';
-    console.log('Using API key for Mobile-Friendly Test API:', GOOGLE_API_KEY.substring(0, 5) + '...');
+    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY as string;
+    if (!GOOGLE_API_KEY) {
+      throw new Error('GOOGLE_API_KEY is not set.');
+    }
+    const maskedKey = GOOGLE_API_KEY.length > 8 
+      ? `${GOOGLE_API_KEY.substring(0, 6)}...${GOOGLE_API_KEY.substring(GOOGLE_API_KEY.length - 4)}`
+      : '******';
+    console.log('Calling Mobile-Friendly Test API with key:', maskedKey);
     
     const analysis = {
       verdict: 'MOBILE_FRIENDLY',
@@ -1614,7 +1476,7 @@ export class WebsiteAnalysisService {
       // Documentation: https://developers.google.com/search/apis/indexing-api/v3/reference/index-api
       const apiUrl = `https://searchconsole.googleapis.com/v1/urlTestingTools/mobileFriendlyTest:run?key=${GOOGLE_API_KEY}`;
       
-      console.log(`Calling Mobile-Friendly Test API for URL: ${url} with API key: ${GOOGLE_API_KEY.substring(0, 5)}...`);
+      console.log(`Calling Mobile-Friendly Test API for URL: ${url}`);
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -1630,12 +1492,14 @@ export class WebsiteAnalysisService {
       console.log(`Mobile-Friendly Test API response status: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {
-        // If we get a 404 error (no data available), use mock data for demonstration
-        if (response.status === 404) {
-          console.log('No Mobile-Friendly Test data found (404), returning mock data for demonstration');
-          return this.getMockMobileFriendlyData(url);
+        let errorDetail = '';
+        try {
+          const errJson = await response.json();
+          errorDetail = errJson?.error?.message || JSON.stringify(errJson);
+        } catch (_) {
+          // ignore parse errors
         }
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        throw new Error(`API request failed: ${response.status} ${response.statusText}${errorDetail ? ' - ' + errorDetail : ''}`);
       }
 
       const result = await response.json();
@@ -1715,139 +1579,11 @@ export class WebsiteAnalysisService {
 
     } catch (error) {
       console.error('Error calling Google Mobile-Friendly Test API:', error);
-      
-      // Fallback to manual analysis if API fails
-      try {
-        const pageData = await this.getPageData(url) as any;
-        
-        // Analyze viewport meta tag
-        if (!pageData.html.includes('viewport') || !pageData.html.includes('width=device-width')) {
-          analysis.issues.push('Viewport not set');
-          analysis.details.viewport = true;
-          analysis.verdict = 'NOT_MOBILE_FRIENDLY';
-        }
-
-        // Check for responsive design indicators
-        const hasResponsiveCSS = pageData.html.includes('@media') || 
-                                pageData.html.includes('max-width') || 
-                                pageData.html.includes('min-width');
-        
-        if (!hasResponsiveCSS) {
-          analysis.issues.push('No responsive design detected');
-          analysis.details.responsiveDesign = true;
-          analysis.verdict = 'NOT_MOBILE_FRIENDLY';
-        }
-
-        // Check for Flash or other incompatible plugins
-        if (pageData.html.includes('flash') || pageData.html.includes('swf') || pageData.html.includes('object')) {
-          analysis.issues.push('Incompatible plugins detected');
-          analysis.details.plugins = true;
-          analysis.verdict = 'NOT_MOBILE_FRIENDLY';
-        }
-
-        // Generate recommendations based on issues
-        if (analysis.details.viewport) {
-          analysis.recommendations.push('Add viewport meta tag: <meta name="viewport" content="width=device-width, initial-scale=1.0">');
-        }
-        if (analysis.details.responsiveDesign) {
-          analysis.recommendations.push('Implement responsive design using CSS media queries');
-        }
-        if (analysis.details.plugins) {
-          analysis.recommendations.push('Remove or replace Flash and other incompatible plugins');
-        }
-
-        if (analysis.issues.length === 0) {
-          analysis.verdict = 'MOBILE_FRIENDLY';
-          analysis.recommendations.push('Website appears mobile-friendly! Consider using Google\'s official test for detailed analysis');
-        }
-
-      } catch (fallbackError) {
-        console.error('Fallback analysis also failed:', fallbackError);
-        analysis.verdict = 'NOT_MOBILE_FRIENDLY';
-        analysis.issues.push('Unable to analyze page content');
-        analysis.recommendations.push('Check if the website is accessible and try again');
-      }
-
-      return analysis;
+      throw error;
     }
   }
 
-  // Generate mock Mobile-Friendly Test data for demonstration purposes
-  private getMockMobileFriendlyData(url: string) {
-    console.log(`Generating mock Mobile-Friendly Test data for ${url}`);
-    
-    // Randomly decide if the site is mobile-friendly (80% chance of being mobile-friendly)
-    const isMobileFriendly = Math.random() < 0.8;
-    
-    const analysis = {
-      url,
-      verdict: isMobileFriendly ? 'MOBILE_FRIENDLY' : 'NOT_MOBILE_FRIENDLY',
-      issues: [] as string[],
-      screenshots: [] as any[],
-      details: {
-        viewport: false,
-        textSize: false,
-        clickableElements: false,
-        contentWidth: false,
-        plugins: false,
-        responsiveDesign: false,
-        loadingSpeed: false
-      },
-      recommendations: [] as string[]
-    };
-    
-    if (isMobileFriendly) {
-      analysis.recommendations.push('Website is mobile-friendly! Consider optimizing for even better performance');
-      analysis.recommendations.push('Test on various mobile devices and screen sizes');
-      analysis.recommendations.push('Monitor Core Web Vitals for mobile performance');
-    } else {
-      // Add random issues
-      const possibleIssues = [
-        { type: 'CONFIGURE_VIEWPORT', detail: 'viewport' },
-        { type: 'USE_LEGIBLE_FONT_SIZES', detail: 'textSize' },
-        { type: 'TAP_TARGETS_TOO_CLOSE', detail: 'clickableElements' },
-        { type: 'SIZE_CONTENT_TO_VIEWPORT', detail: 'contentWidth' },
-        { type: 'USES_INCOMPATIBLE_PLUGINS', detail: 'plugins' }
-      ];
-      
-      // Select 1-3 random issues
-      const numIssues = Math.floor(Math.random() * 3) + 1;
-      const selectedIssues: string[] = [];
-      
-      for (let i = 0; i < numIssues; i++) {
-        const randomIndex = Math.floor(Math.random() * possibleIssues.length);
-        const issue = possibleIssues[randomIndex];
-        
-        // Add issue if not already selected
-        if (!selectedIssues.includes(issue.type as string)) {
-          selectedIssues.push(issue.type as string);
-          analysis.issues.push(this.getIssueDescription(issue.type));
-          analysis.details[issue.detail] = true;
-          
-          // Add corresponding recommendation
-          switch (issue.type) {
-            case 'CONFIGURE_VIEWPORT':
-              analysis.recommendations.push('Add viewport meta tag: <meta name="viewport" content="width=device-width, initial-scale=1.0">');
-              break;
-            case 'USE_LEGIBLE_FONT_SIZES':
-              analysis.recommendations.push('Use larger font sizes (minimum 16px) for mobile readability');
-              break;
-            case 'TAP_TARGETS_TOO_CLOSE':
-              analysis.recommendations.push('Ensure clickable elements have adequate spacing (minimum 44px)');
-              break;
-            case 'SIZE_CONTENT_TO_VIEWPORT':
-              analysis.recommendations.push('Ensure content fits within the viewport width');
-              break;
-            case 'USES_INCOMPATIBLE_PLUGINS':
-              analysis.recommendations.push('Remove or replace Flash and other incompatible plugins');
-              break;
-          }
-        }
-      }
-    }
-    
-    return analysis;
-  }
+  
   
   // Get human-readable issue descriptions
   private getIssueDescription(issueType: string): string {
@@ -1866,8 +1602,12 @@ export class WebsiteAnalysisService {
 
   // Run Core Web Vitals (CrUX) Analysis
   private async runCoreWebVitalsAnalysis(origin: string) {
-    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyCXvKjP-5USQMsLQkcXCNK7qvXyrEgHvJM';
-    console.log('Using API key for CrUX API:', GOOGLE_API_KEY.substring(0, 5) + '...');
+    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY as string;
+    if (!GOOGLE_API_KEY) {
+      throw new Error('GOOGLE_API_KEY is not set.');
+    }
+    const maskedKey = GOOGLE_API_KEY.length > 8 ? `${GOOGLE_API_KEY.substring(0, 6)}...${GOOGLE_API_KEY.substring(GOOGLE_API_KEY.length - 4)}` : '******';
+    console.log('Using API key for CrUX API:', maskedKey);
     
     const analysis = {
       recordCount: 0,
@@ -1900,32 +1640,40 @@ export class WebsiteAnalysisService {
       // Use Google's CrUX API v1
       // Documentation: https://developers.google.com/web/tools/chrome-user-experience-report/api/reference
       const apiUrl = `https://chromeuxreport.googleapis.com/v1/records:queryRecord?key=${GOOGLE_API_KEY}`;
-      
-      console.log(`Calling CrUX API for origin: ${origin} with API key: ${GOOGLE_API_KEY.substring(0, 5)}...`)
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          origin: origin,
-          formFactor: 'ALL_FORM_FACTORS'
-        })
-      });
-      
-      console.log(`CrUX API response status: ${response.status} ${response.statusText}`)
 
-      if (!response.ok) {
-        // If we get a 404 error (no data available), use mock data for demonstration
-        if (response.status === 404) {
-          console.log('No CrUX data found (404), returning mock data for demonstration');
-          return this.getMockCruxData(origin);
+      // First try page URL (more specific). If 404, fall back to origin.
+      const cruxFetch = async (body: any, label: string) => {
+        console.log(`Calling CrUX API for ${label}`);
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        console.log(`CrUX API response for ${label}: ${res.status} ${res.statusText}`);
+        if (!res.ok) {
+          let detail = '';
+          try {
+            const ej = await res.json();
+            detail = ej?.error?.message || JSON.stringify(ej);
+          } catch {}
+          const err = new Error(`CrUX API request failed: ${res.status} ${res.statusText}${detail ? ' - ' + detail : ''}`);
+          (err as any).status = res.status;
+          throw err;
         }
-        throw new Error(`CrUX API request failed: ${response.status} ${response.statusText}`);
-      }
+        return res.json();
+      };
 
-      const result = await response.json();
+      let result: any;
+      try {
+        result = await cruxFetch({ url: origin, formFactor: 'ALL_FORM_FACTORS' }, 'page URL');
+      } catch (e: any) {
+        if (e.status === 404) {
+          console.log('No page-level CrUX data; retrying with origin');
+          result = await cruxFetch({ origin: origin, formFactor: 'ALL_FORM_FACTORS' }, 'origin');
+        } else {
+          throw e;
+        }
+      }
       console.log('CrUX API response:', result);
       console.log('CrUX API response keys:', Object.keys(result));
 
@@ -1961,69 +1709,15 @@ export class WebsiteAnalysisService {
       }
 
       return analysis;
-
+      
     } catch (error) {
       console.error('Error calling CrUX API:', error);
-      console.error('Error details:', error.message);
-      
-      analysis.summary.status = 'Analysis failed';
-      analysis.summary.recommendations.push('Unable to fetch Core Web Vitals data. This could be due to:');
-      analysis.summary.recommendations.push('- API key issues or quota limits');
-      analysis.summary.recommendations.push('- Network connectivity problems');
-      analysis.summary.recommendations.push('- The site may not have sufficient Chrome user data');
-      analysis.summary.recommendations.push(`- Error: ${error.message}`);
-      
-      return analysis;
+      throw error;
     }
   }
-
-  // Generate mock CrUX data for demonstration purposes
-  private getMockCruxData(origin: string) {
-    console.log(`Generating mock CrUX data for ${origin}`);
-    
-    // Helper function to generate random metric data
-    const generateMetricData = (min: number, max: number) => {
-      const total = 100;
-      const good = Math.floor(Math.random() * 60) + 20; // 20-80%
-      const needsImprovement = Math.floor(Math.random() * (100 - good - 5)) + 5; // 5-75%
-      const poor = total - good - needsImprovement;
-      
-      return {
-        p75: Math.floor(Math.random() * (max - min)) + min,
-        good,
-        needsImprovement,
-        poor,
-        total
-      };
-    };
-    
-    // Generate form factor data
-    const generateFormFactorData = () => ({
-      lcp: generateMetricData(1500, 4000),
-      cls: generateMetricData(0.1, 0.5),
-      inp: generateMetricData(100, 500),
-      fid: generateMetricData(50, 300),
-      ttfb: generateMetricData(200, 1000)
-    });
-    
-    const formFactors = {
-      desktop: generateFormFactorData(),
-      mobile: generateFormFactorData(),
-      tablet: generateFormFactorData()
-    };
-    
-    // Calculate overall score based on form factors
-    const summary = this.calculateCoreWebVitalsSummary({
-      formFactors,
-      recordCount: Math.floor(Math.random() * 5000) + 1000
-    });
-    
-    return {
-      recordCount: Math.floor(Math.random() * 5000) + 1000,
-      formFactors,
-      summary
-    };
-  }
+  
+  
+  
   
   // Parse metrics for a specific form factor
   private parseMetrics(metrics: any, formFactor: string) {
