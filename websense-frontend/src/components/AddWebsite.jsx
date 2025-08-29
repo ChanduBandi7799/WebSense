@@ -29,6 +29,14 @@ const AddWebsite = () => {
   const [coreWebVitalsResult, setCoreWebVitalsResult] = useState(null);
   const reportRef = useRef(null);
 
+  // Add CSS reset effect
+  React.useEffect(() => {
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    document.body.style.backgroundColor = '#020617';
+    document.documentElement.style.backgroundColor = '#020617';
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!url.trim()) {
@@ -264,235 +272,303 @@ const AddWebsite = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6 text-center">
-        <span className="text-green-600">Analyze</span> <span className="text-blue-600">Website</span>
-      </h1>
-      
-      {!report ? (
-        <div className="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="url" className="block text-gray-700 font-medium mb-2">
-                  Website URL
-                </label>
-                <input
-                  type="url"
-                  id="url"
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="https://example.com"
-                  required
-                />
-              </div>
-              
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleTestAccessibility}
-                  disabled={isTestingAccessibility || !url.trim()}
-                  className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50"
-                >
-                  {isTestingAccessibility ? 'Testing...' : 'Test Accessibility'}
-                </button>
+    <div className="min-h-screen bg-slate-950" style={{ 
+      backgroundColor: '#020617', 
+      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+      margin: 0,
+      padding: 0
+    }}>
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-4xl md:text-5xl font-bold mb-8 text-center bg-gradient-to-r from-slate-100 via-blue-100 to-slate-100 bg-clip-text text-transparent">
+          WEBSENSE
+        </h1>
+        <p className="text-center text-slate-400 mb-8 text-lg">Professional Website Analysis & Intelligence</p>
+        
+        {!report ? (
+          <div className="max-w-2xl mx-auto">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 to-slate-600/20 rounded-xl blur opacity-75"></div>
+              <div className="relative bg-slate-900/40 rounded-xl border border-slate-800/50 backdrop-blur-md p-8">
+                <form onSubmit={handleSubmit}>
+                  <div className="space-y-6">
+                    <div>
+                      <label htmlFor="url" className="block text-slate-300 font-semibold mb-4 text-lg">
+                        Website URL
+                      </label>
+                      <input
+                        type="url"
+                        id="url"
+                        value={url}
+                        onChange={(e) => setUrl(e.target.value)}
+                        className="w-full px-6 py-4 bg-slate-800/50 border border-slate-700/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-slate-100 placeholder-slate-400 text-lg backdrop-blur-sm"
+                        placeholder="https://example.com"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={handleTestAccessibility}
+                        disabled={isTestingAccessibility || !url.trim()}
+                        className="px-6 py-3 bg-slate-700/50 text-slate-100 rounded-lg hover:bg-slate-600/50 focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50 border border-slate-600/50 backdrop-blur-sm transition-all duration-300"
+                      >
+                        {isTestingAccessibility ? 'Testing...' : 'Test Accessibility'}
+                      </button>
+                      
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || !url.trim()}
+                        className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-slate-700 text-white rounded-lg hover:from-blue-500 hover:to-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 font-semibold transition-all duration-300"
+                      >
+                        {isSubmitting ? 'Analyzing...' : 'Analyze Website'}
+                      </button>
+                    </div>
+                    
+                    {/* Accessibility Test Result */}
+                    {accessibilityResult && (
+                      <div className={`p-6 rounded-xl border backdrop-blur-sm ${
+                        accessibilityResult.accessible 
+                          ? 'bg-blue-950/50 border-blue-800/50' 
+                          : 'bg-red-950/50 border-red-800/50'
+                      }`}>
+                        <h4 className={`font-semibold mb-3 ${
+                          accessibilityResult.accessible ? 'text-blue-200' : 'text-red-200'
+                        }`}>
+                          Website Accessibility Test Result
+                        </h4>
+                        <p className={`text-sm ${
+                          accessibilityResult.accessible ? 'text-blue-300' : 'text-red-300'
+                        }`}>
+                          {accessibilityResult.message}
+                        </p>
+                        {accessibilityResult.statusCode && (
+                          <p className={`text-sm mt-2 ${
+                            accessibilityResult.accessible ? 'text-blue-400' : 'text-red-400'
+                          }`}>
+                            Status Code: {accessibilityResult.statusCode}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </form>
                 
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !url.trim()}
-                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Analyzing...' : 'Analyze Website'}
-                </button>
+                {error && (
+                  <div className="mt-6 bg-red-950/50 border border-red-800/50 text-red-200 px-6 py-4 rounded-xl backdrop-blur-sm">
+                    <p className="font-semibold">Analysis Error:</p>
+                    <p>{error}</p>
+                    <p className="text-sm mt-2 text-red-300">Please check the browser console for more details.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-900/40 rounded-2xl border border-slate-800/50 backdrop-blur-md overflow-hidden">
+            <div ref={reportRef}>
+              <div className="p-8 border-b border-slate-800/50">
+                <h2 className="text-3xl font-bold text-slate-100 mb-2">Report for {report.url}</h2>
+                <p className="text-slate-400 text-lg">Generated on {new Date().toLocaleString()}</p>
               </div>
               
-              {/* Accessibility Test Result */}
-              {accessibilityResult && (
-                <div className={`p-4 rounded-lg border ${
-                  accessibilityResult.accessible 
-                    ? 'bg-green-50 border-green-200' 
-                    : 'bg-red-50 border-red-200'
-                }`}>
-                  <h4 className={`font-medium mb-2 ${
-                    accessibilityResult.accessible ? 'text-green-800' : 'text-red-800'
-                  }`}>
-                    Website Accessibility Test Result
-                  </h4>
-                  <p className={`text-sm ${
-                    accessibilityResult.accessible ? 'text-green-700' : 'text-red-700'
-                  }`}>
-                    {accessibilityResult.message}
-                  </p>
-                  {accessibilityResult.statusCode && (
-                    <p className={`text-sm mt-1 ${
-                      accessibilityResult.accessible ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      Status Code: {accessibilityResult.statusCode}
-                    </p>
-                  )}
-                </div>
-              )}
+              {/* Tab Navigation - Matching Website Design */}
+<div className="bg-slate-900 py-6 px-8">
+  <div className="max-w-7xl mx-auto">
+    <nav className="flex gap-4">
+      {/* Lighthouse Tab */}
+<button
+  onClick={() => handleTabChange('lighthouse')}
+  className={`group relative flex-1 px-6 py-4 rounded-xl font-semibold text-sm uppercase tracking-wide transition-all duration-300 transform ${
+    activeTab === 'lighthouse'
+      ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25 scale-105'
+      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white hover:scale-102'
+  }`}
+>
+  <div className="flex items-center justify-center gap-2">
+    <div className={`w-2 h-2 rounded-full ${
+      activeTab === 'lighthouse' ? 'bg-white' : 'bg-slate-500'
+    }`}></div>
+    Lighthouse
+  </div>
+  
+  {/* Click Animation Overlay */}
+  <div className={`absolute inset-0 bg-blue-500/20 rounded-xl transition-opacity duration-200 ${
+    activeTab === 'lighthouse' ? 'opacity-100 animate-pulse' : 'opacity-0'
+  }`}></div>
+</button>
 
+{/* Core Web Vitals Tab */}
+<button
+  onClick={() => handleTabChange('corewebvitals')}
+  className={`group relative flex-1 px-6 py-4 rounded-xl font-semibold text-sm uppercase tracking-wide transition-all duration-300 transform ${
+    activeTab === 'corewebvitals'
+      ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25 scale-105'
+      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white hover:scale-102'
+  }`}
+>
+  <div className="flex items-center justify-center gap-2">
+    <div className={`w-2 h-2 rounded-full ${
+      activeTab === 'corewebvitals' ? 'bg-white' : 'bg-slate-500'
+    }`}></div>
+    Core Web Vitals
+  </div>
+  
+  <div className={`absolute inset-0 bg-orange-500/20 rounded-xl transition-opacity duration-200 ${
+    activeTab === 'corewebvitals' ? 'opacity-100 animate-pulse' : 'opacity-0'
+  }`}></div>
+</button>
 
-            </div>
-          </form>
-          
-          {error && (
-            <div className="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-              <p className="font-medium">Analysis Error:</p>
-              <p>{error}</p>
-              <p className="text-sm mt-2">Please check the browser console for more details.</p>
-            </div>
-          )}
+      {/* Tech Stack Tab */}
+      <button
+        onClick={() => handleTabChange('techstack')}
+        className={`group relative flex-1 px-6 py-4 rounded-xl font-semibold text-sm uppercase tracking-wide transition-all duration-300 transform ${
+          activeTab === 'techstack'
+            ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25 scale-105'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white hover:scale-102'
+        }`}
+      >
+        <div className="flex items-center justify-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${
+            activeTab === 'techstack' ? 'bg-white' : 'bg-slate-500'
+          }`}></div>
+          Tech Stack
         </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div ref={reportRef}>
-            <div className="p-6 border-b">
-              <h2 className="text-2xl font-bold">Report for {report.url}</h2>
-              <p className="text-sm text-gray-600 mt-1">Generated on {new Date().toLocaleString()}</p>
+        
+        <div className={`absolute inset-0 bg-purple-500/20 rounded-xl transition-opacity duration-200 ${
+          activeTab === 'techstack' ? 'opacity-100 animate-pulse' : 'opacity-0'
+        }`}></div>
+      </button>
+
+      {/* Security Headers Tab */}
+      <button
+        onClick={() => handleTabChange('security')}
+        className={`group relative flex-1 px-6 py-4 rounded-xl font-semibold text-sm uppercase tracking-wide transition-all duration-300 transform ${
+          activeTab === 'security'
+            ? 'bg-red-600 text-white shadow-lg shadow-red-600/25 scale-105'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white hover:scale-102'
+        }`}
+      >
+        <div className="flex items-center justify-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${
+            activeTab === 'security' ? 'bg-white' : 'bg-slate-500'
+          }`}></div>
+          Security Headers
+        </div>
+        
+        <div className={`absolute inset-0 bg-red-500/20 rounded-xl transition-opacity duration-200 ${
+          activeTab === 'security' ? 'opacity-100 animate-pulse' : 'opacity-0'
+        }`}></div>
+      </button>
+
+      {/* Mobile-Friendly Tab */}
+      <button
+        onClick={() => handleTabChange('mobile')}
+        className={`group relative flex-1 px-6 py-4 rounded-xl font-semibold text-sm uppercase tracking-wide transition-all duration-300 transform ${
+          activeTab === 'mobile'
+            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/25 scale-105'
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white hover:scale-102'
+        }`}
+      >
+        <div className="flex items-center justify-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${
+            activeTab === 'mobile' ? 'bg-white' : 'bg-slate-500'
+          }`}></div>
+          Mobile-Friendly
+        </div>
+        
+        <div className={`absolute inset-0 bg-emerald-500/20 rounded-xl transition-opacity duration-200 ${
+          activeTab === 'mobile' ? 'opacity-100 animate-pulse' : 'opacity-0'
+        }`}></div>
+      </button>
+    </nav>
+  </div>
+</div>
+              
+              <div className="p-8">
+                {/* Lighthouse Tab */}
+                {activeTab === 'lighthouse' && (
+                  <LighthouseTab 
+                    report={report} 
+                  />
+                )}
+                
+                {/* Core Web Vitals Tab */}
+                {activeTab === 'corewebvitals' && (
+                  <CoreWebVitalsTab 
+                    isAnalyzingCoreWebVitals={isAnalyzingCoreWebVitals} 
+                    coreWebVitalsResult={coreWebVitalsResult} 
+                    handleAnalyzeCoreWebVitals={handleAnalyzeCoreWebVitals}
+                  />
+                )}
+                
+                {/* Tech Stack Tab */}
+                {activeTab === 'techstack' && (
+                  <TechStackTab 
+                    techStackData={techStackResult} 
+                    techStackAnalysisStatus={isAnalyzingTechStack ? 'loading' : techStackResult ? 'success' : 'error'} 
+                    techStackError={techStackResult?.message || error} 
+                  />
+                )}
+                
+                {/* Security Headers Tab */}
+                {activeTab === 'security' && (
+                  <SecurityHeadersTab 
+                    securityHeadersData={securityHeadersResult} 
+                    securityHeadersAnalysisStatus={isAnalyzingSecurityHeaders ? 'loading' : securityHeadersResult ? 'success' : 'error'} 
+                    securityHeadersError={securityHeadersResult?.message || error} 
+                  />
+                )}
+                
+                {/* Mobile-Friendly Tab */}
+                {activeTab === 'mobile' && (
+                  <MobileFriendlyTab 
+                    mobileFriendlyData={mobileFriendlyResult} 
+                    mobileFriendlyAnalysisStatus={isAnalyzingMobileFriendly ? 'loading' : mobileFriendlyResult ? 'success' : 'error'} 
+                    mobileFriendlyError={mobileFriendlyResult?.message || error} 
+                  />
+                )}
+              </div>
             </div>
             
-            {/* Tab Navigation - Lighthouse, Core Web Vitals, Tech Stack, Security Headers, and Mobile-Friendly */}
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8">
-                <button
-                  onClick={() => handleTabChange('lighthouse')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'lighthouse'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Lighthouse
-                </button>
-                <button
-                  onClick={() => handleTabChange('corewebvitals')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'corewebvitals'
-                      ? 'border-green-500 text-green-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Core Web Vitals
-                </button>
-                <button
-                  onClick={() => handleTabChange('techstack')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'techstack'
-                      ? 'border-purple-500 text-purple-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Tech Stack
-                </button>
-                <button
-                  onClick={() => handleTabChange('security')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'security'
-                      ? 'border-red-500 text-red-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Security Headers
-                </button>
-                <button
-                  onClick={() => handleTabChange('mobile')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'mobile'
-                      ? 'border-orange-500 text-orange-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  Mobile-Friendly
-                </button>
-              </nav>
-            </div>
-            
-            <div className="p-6">
-              {/* Lighthouse Tab */}
-              {activeTab === 'lighthouse' && (
-                <LighthouseTab 
-                  report={report} 
-                />
-              )}
+            <div className="p-8 border-t border-slate-800/50 bg-slate-900/20 flex justify-between">
+              <button 
+                onClick={() => {
+                  setReport(null);
+                  setError(null);
+                  console.log('Cleared report and ready for new analysis');
+                }}
+                className="bg-gradient-to-r from-blue-600 to-slate-700 text-white py-3 px-8 rounded-lg hover:from-blue-500 hover:to-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 font-semibold transition-all duration-300"
+              >
+                Analyze Another Website
+              </button>
               
-              {/* Core Web Vitals Tab */}
-              {activeTab === 'corewebvitals' && (
-                <CoreWebVitalsTab 
-                  isAnalyzingCoreWebVitals={isAnalyzingCoreWebVitals} 
-                  coreWebVitalsResult={coreWebVitalsResult} 
-                  handleAnalyzeCoreWebVitals={handleAnalyzeCoreWebVitals}
-                />
-              )}
-              
-              {/* Tech Stack Tab */}
-              {activeTab === 'techstack' && (
-                <TechStackTab 
-                  techStackData={techStackResult} 
-                  techStackAnalysisStatus={isAnalyzingTechStack ? 'loading' : techStackResult ? 'success' : 'error'} 
-                  techStackError={techStackResult?.message || error} 
-                />
-              )}
-              
-              {/* Security Headers Tab */}
-              {activeTab === 'security' && (
-                <SecurityHeadersTab 
-                  securityHeadersData={securityHeadersResult} 
-                  securityHeadersAnalysisStatus={isAnalyzingSecurityHeaders ? 'loading' : securityHeadersResult ? 'success' : 'error'} 
-                  securityHeadersError={securityHeadersResult?.message || error} 
-                />
-              )}
-              
-              {/* Mobile-Friendly Tab */}
-              {activeTab === 'mobile' && (
-                <MobileFriendlyTab 
-                  mobileFriendlyData={mobileFriendlyResult} 
-                  mobileFriendlyAnalysisStatus={isAnalyzingMobileFriendly ? 'loading' : mobileFriendlyResult ? 'success' : 'error'} 
-                  mobileFriendlyError={mobileFriendlyResult?.message || error} 
-                />
-              )}
+              <button 
+                onClick={generatePDF}
+                disabled={isGeneratingPdf}
+                className="bg-gradient-to-r from-indigo-600 to-slate-700 text-white py-3 px-8 rounded-lg hover:from-indigo-500 hover:to-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 flex items-center font-semibold transition-all duration-300 disabled:opacity-50"
+              >
+                {isGeneratingPdf ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Generating PDF...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Download PDF Report
+                  </>
+                )}
+              </button>
             </div>
           </div>
-          
-          <div className="p-6 border-t bg-gray-50 flex justify-between">
-            <button 
-              onClick={() => {
-                setReport(null);
-                setError(null);
-                console.log('Cleared report and ready for new analysis');
-              }}
-              className="bg-blue-500 text-white py-2 px-6 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-            >
-              Analyze Another Website
-            </button>
-            
-            <button 
-              onClick={generatePDF}
-              disabled={isGeneratingPdf}
-              className="bg-purple-500 text-white py-2 px-6 rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-50 flex items-center"
-            >
-              {isGeneratingPdf ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Generating PDF...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                  </svg>
-                  Download PDF Report
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

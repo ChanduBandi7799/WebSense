@@ -1,10 +1,18 @@
 import React from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
+import { Zap, Activity, Sparkles, Monitor, Smartphone, Tablet, AlertTriangle, CheckCircle, Eye, TrendingUp, Clock, Target } from 'lucide-react';
 
 const CoreWebVitalsTab = ({ 
   isAnalyzingCoreWebVitals, 
   coreWebVitalsResult, 
   handleAnalyzeCoreWebVitals 
 }) => {
+  // Add CSS reset effect
+  React.useEffect(() => {
+    document.body.style.backgroundColor = '#020617';
+    document.documentElement.style.backgroundColor = '#020617';
+  }, []);
+
   // Calculate overall score for visualization
   const calculateOverallScore = (data) => {
     if (!data || !data.formFactors) return { score: 0, metrics: {} };
@@ -60,110 +68,102 @@ const CoreWebVitalsTab = ({
     
     // Prepare data for the metrics bar chart
     const metricLabels = {
-      lcp: 'LCP',
-      cls: 'CLS',
-      inp: 'INP',
-      fid: 'FID',
-      ttfb: 'TTFB'
+      lcp: 'Largest Contentful Paint',
+      cls: 'Cumulative Layout Shift',
+      inp: 'Interaction to Next Paint',
+      fid: 'First Input Delay',
+      ttfb: 'Time to First Byte'
     };
     
     const metricScores = Object.entries(overallScore.metrics).map(([key, value]) => ({
       name: metricLabels[key] || key.toUpperCase(),
+      shortName: key.toUpperCase(),
       score: value,
       color: getScoreColor(value)
     }));
     
     return (
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Overall Performance Summary</h3>
+      <div className="group relative p-8 bg-gradient-to-br from-slate-900/40 to-slate-800/30 rounded-2xl border border-slate-700/40 backdrop-blur-md">
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-slate-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         
-        <div className="flex flex-col md:flex-row items-center justify-between mb-6">
-          {/* Overall score gauge */}
-          <div className="relative w-40 h-40 mb-4 md:mb-0">
-            <svg viewBox="0 0 100 100" className="w-full h-full">
-              {/* Background circle */}
-              <circle
-                cx="50"
-                cy="50"
-                r="45"
-                fill="none"
-                stroke="#e5e7eb"
-                strokeWidth="10"
-              />
-              
-              {/* Score arc */}
-              <circle
-                cx="50"
-                cy="50"
-                r="45"
-                fill="none"
-                stroke={overallColor}
-                strokeWidth="10"
-                strokeDasharray={`${overallScore.score * 2.83} 283`}
-                strokeLinecap="round"
-                transform="rotate(-90 50 50)"
-              />
-              
-              {/* Score text */}
-              <text
-                x="50"
-                y="50"
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize="24"
-                fontWeight="bold"
-                fill={overallColor}
-              >
+        <div className="relative">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="p-4 bg-slate-800/40 rounded-xl border border-slate-700/30">
+              <TrendingUp className="w-8 h-8 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="text-3xl font-bold text-slate-100 mb-2">Performance Overview</h3>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900/50 rounded-full border border-slate-700/30">
+                <Sparkles className="w-4 h-4 text-blue-400 animate-pulse" />
+                <span className="text-sm text-slate-300 font-semibold tracking-wide">REAL USER METRICS</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="p-6 bg-slate-900/30 rounded-xl border border-slate-800/40 backdrop-blur-sm">
+              <div className="text-3xl font-bold mb-2" style={{ color: overallColor }}>
                 {overallScore.score}
-              </text>
-              
-              <text
-                x="50"
-                y="65"
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize="12"
-                fill="#6b7280"
-              >
-                Score
-              </text>
-            </svg>
-          </div>
-          
-          {/* Metrics bar chart */}
-          <div className="flex-1 ml-0 md:ml-8">
-            <div className="space-y-4">
-              {metricScores.map(metric => (
-                <div key={metric.name} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{metric.name}</span>
-                    <span className="font-medium" style={{ color: metric.color }}>{metric.score}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div 
-                      className="h-2.5 rounded-full" 
-                      style={{ width: `${metric.score}%`, backgroundColor: metric.color }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+              </div>
+              <div className="text-sm text-slate-400 font-medium">Overall Score</div>
+            </div>
+            
+            <div className="p-6 bg-slate-900/30 rounded-xl border border-slate-800/40 backdrop-blur-sm">
+              <div className="text-3xl font-bold text-green-400 mb-2">
+                {data.recordCount ? Math.floor(data.recordCount / 1000) + 'K' : '0'}
+              </div>
+              <div className="text-sm text-slate-400 font-medium">User Samples</div>
+            </div>
+            
+            <div className="p-6 bg-slate-900/30 rounded-xl border border-slate-800/40 backdrop-blur-sm">
+              <div className="text-3xl font-bold text-purple-400 mb-2">
+                {Object.keys(overallScore.metrics).length}
+              </div>
+              <div className="text-sm text-slate-400 font-medium">Metrics Analyzed</div>
+            </div>
+            
+            <div className="p-6 bg-slate-900/30 rounded-xl border border-slate-800/40 backdrop-blur-sm">
+              <div className="text-3xl font-bold text-orange-400 mb-2">28</div>
+              <div className="text-sm text-slate-400 font-medium">Days Period</div>
             </div>
           </div>
-        </div>
-        
-        <div className="text-sm text-gray-500">
-          <div className="flex items-center justify-center space-x-6">
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
-              <span>Good (75-100%)</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-yellow-500 mr-1"></div>
-              <span>Needs Improvement (50-74%)</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
-              <span>Poor (0-49%)</span>
+
+          {/* Metrics Performance Chart */}
+          <div className="p-6 bg-slate-800/30 rounded-xl border border-slate-700/40">
+            <h4 className="text-xl font-bold text-slate-100 mb-6">Core Metrics Performance</h4>
+            <div style={{ height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={metricScores} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis 
+                    dataKey="shortName" 
+                    stroke="#94a3b8" 
+                    fontSize={12}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis stroke="#94a3b8" domain={[0, 100]} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '12px',
+                      color: '#e2e8f0',
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.3)'
+                    }}
+                    formatter={(value, name, props) => [
+                      `${value}% Good`, 
+                      props.payload.name
+                    ]}
+                  />
+                  <Bar 
+                    dataKey="score" 
+                    radius={[4, 4, 0, 0]}
+                    fill="#3b82f6"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>
@@ -172,68 +172,116 @@ const CoreWebVitalsTab = ({
   };
   
   return (
-    <>
-      <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-        <h4 className="text-green-800 font-medium mb-2">Core Web Vitals (CrUX)</h4>
-        <p className="text-green-700 text-sm">
-          Real user performance metrics from Chrome UX Report. Shows how your site performs for actual users across devices, networks, and locations.
-        </p>
+    <div className="min-h-screen bg-slate-950" style={{ backgroundColor: '#020617', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif' }}>
+      {/* Animated Background */}
+      <div className="fixed inset-0 opacity-30 pointer-events-none">
+        <div className="absolute top-0 -left-4 w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse"></div>
+        <div className="absolute top-0 -right-4 w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute -bottom-8 left-20 w-96 h-96 bg-cyan-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse" style={{ animationDelay: '4s' }}></div>
       </div>
-      
-      {isAnalyzingCoreWebVitals ? (
-        <div className="text-center py-8">
-          <div className="mb-4">
-            <svg className="animate-spin mx-auto h-12 w-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Analyzing Core Web Vitals...</h3>
-          <p className="text-gray-500">Please wait while we fetch real user performance data from Chrome UX Report.</p>
-        </div>
-      ) : coreWebVitalsResult ? (
-        <div className="space-y-6">
-          {coreWebVitalsResult.success ? (
-            <>
-              {renderSummaryChart(coreWebVitalsResult)}
-              <CoreWebVitalsDisplay data={coreWebVitalsResult} />
-            </>
-          ) : (
-            <div className="text-center py-8">
-              <div className="mb-4">
-                <svg className="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                </svg>
+
+      <div className="relative z-10 p-6">
+        {/* Header Section */}
+        <div className="mb-12 p-8 bg-gradient-to-br from-blue-950/30 via-slate-900/40 to-slate-950/30 border border-blue-800/30 rounded-2xl backdrop-blur-md overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-transparent"></div>
+          <div className="relative">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="p-4 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                <Zap className="w-8 h-8 text-blue-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Analysis Failed</h3>
-              <p className="text-gray-500 mb-4">
-                {coreWebVitalsResult.message}
-              </p>
-              <button
-                onClick={handleAnalyzeCoreWebVitals}
-                disabled={isAnalyzingCoreWebVitals}
-                className="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
-              >
-                {isAnalyzingCoreWebVitals ? 'Analyzing...' : 'Try Again'}
-              </button>
+              <div>
+                <h4 className="text-3xl font-bold text-slate-100 mb-2">Core Web Vitals Intelligence</h4>
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-950/50 rounded-full border border-blue-700/30">
+                  <Activity className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm text-blue-300 font-semibold tracking-wide">CHROME UX REPORT ANALYSIS</span>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      ) : (
-        <div className="text-center py-8">
-          <div className="mb-4">
-            <svg className="mx-auto h-12 w-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
+            <p className="text-lg text-slate-300 leading-relaxed max-w-4xl">
+              Real user performance metrics from Chrome UX Report providing comprehensive insights into loading performance, 
+              interactivity, and visual stability across all devices and network conditions.
+            </p>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Click Core Web Vitals Tab to Analyze</h3>
-          <p className="text-gray-500">Switch to the Core Web Vitals tab to automatically analyze real user performance metrics.</p>
         </div>
-      )}
-    </>
+
+        {isAnalyzingCoreWebVitals ? (
+          <div className="text-center py-20">
+            <div className="relative mb-8">
+              <div className="w-32 h-32 mx-auto">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 animate-spin opacity-20"></div>
+                <div className="absolute inset-2 rounded-full bg-slate-950"></div>
+                <div className="absolute inset-6 flex items-center justify-center">
+                  <Zap className="w-12 h-12 text-blue-400 animate-pulse" />
+                </div>
+              </div>
+            </div>
+            <h3 className="text-3xl font-bold text-slate-100 mb-4">Analyzing Core Web Vitals...</h3>
+            <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+              Fetching real user performance data from Chrome UX Report across mobile, desktop, and tablet devices
+            </p>
+            <div className="mt-8 flex justify-center">
+              <div className="flex space-x-2">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="w-3 h-3 bg-blue-400 rounded-full animate-bounce"
+                    style={{ animationDelay: `${i * 0.2}s` }}
+                  ></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : coreWebVitalsResult ? (
+          <div className="space-y-8">
+            {coreWebVitalsResult.success ? (
+              <>
+                {renderSummaryChart(coreWebVitalsResult)}
+                <CoreWebVitalsDisplay data={coreWebVitalsResult} />
+              </>
+            ) : (
+              <div className="text-center py-20">
+                <div className="relative mb-8">
+                  <div className="w-32 h-32 mx-auto bg-gradient-to-br from-red-950/40 to-slate-900/40 rounded-2xl border border-red-800/30 flex items-center justify-center">
+                    <AlertTriangle className="w-16 h-16 text-red-400" />
+                  </div>
+                </div>
+                <h3 className="text-3xl font-bold text-slate-100 mb-4">Core Web Vitals Analysis Failed</h3>
+                <p className="text-xl text-slate-400 mb-8 max-w-2xl mx-auto">
+                  {coreWebVitalsResult.message || 'Unable to fetch performance data from Chrome UX Report. The website may not have sufficient traffic data.'}
+                </p>
+                <div className="relative inline-block">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-slate-600 rounded-xl blur opacity-60"></div>
+                  <button
+                    onClick={handleAnalyzeCoreWebVitals}
+                    disabled={isAnalyzingCoreWebVitals}
+                    className="relative px-8 py-4 bg-gradient-to-r from-blue-600 to-slate-700 text-white text-lg font-bold rounded-xl hover:from-blue-500 hover:to-slate-600 transition-all duration-300 hover:scale-105"
+                  >
+                    <Zap className="w-5 h-5 inline mr-2" />
+                    {isAnalyzingCoreWebVitals ? 'Analyzing...' : 'Retry Analysis'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-20">
+            <div className="relative mb-8">
+              <div className="w-32 h-32 mx-auto bg-gradient-to-br from-blue-950/40 to-slate-900/40 rounded-2xl border border-blue-800/30 flex items-center justify-center">
+                <Eye className="w-16 h-16 text-blue-400" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-bold text-slate-100 mb-4">Ready for Performance Analysis</h3>
+            <p className="text-xl text-slate-400 max-w-2xl mx-auto">
+              Switch to the Core Web Vitals tab to begin comprehensive analysis of real user performance metrics
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
-// Core Web Vitals Display Component
+// Core Web Vitals Display Component with Bar Charts
 const CoreWebVitalsDisplay = ({ data }) => {
   const renderMetricCard = (title, metric, color = 'blue', unit = 'ms') => {
     if (!metric || metric.total === 0) return null;
@@ -243,99 +291,120 @@ const CoreWebVitalsDisplay = ({ data }) => {
     const poorPercentage = Math.round((metric.poor / metric.total) * 100);
     
     const getScoreColor = (percentage) => {
-      if (percentage >= 75) return 'text-green-600';
-      if (percentage >= 50) return 'text-yellow-600';
-      return 'text-red-600';
+      if (percentage >= 75) return '#10B981'; // green
+      if (percentage >= 50) return '#F59E0B'; // yellow
+      return '#EF4444'; // red
     };
 
-    // Data for pie chart
+    const scoreColor = getScoreColor(goodPercentage);
+    
+    // Prepare data for horizontal bar chart
     const chartData = [
       { name: 'Good', value: goodPercentage, color: '#10B981' },
       { name: 'Needs Improvement', value: needsImprovementPercentage, color: '#F59E0B' },
       { name: 'Poor', value: poorPercentage, color: '#EF4444' }
-    ];
+    ].filter(item => item.value > 0);
+
+    const colorClasses = {
+      blue: 'from-blue-950/30 to-slate-900/40 border-blue-800/30',
+      green: 'from-green-950/30 to-slate-900/40 border-green-800/30',
+      purple: 'from-purple-950/30 to-slate-900/40 border-purple-800/30',
+      yellow: 'from-yellow-950/30 to-slate-900/40 border-yellow-800/30',
+      red: 'from-red-950/30 to-slate-900/40 border-red-800/30'
+    };
+
+    const iconComponents = {
+      'Largest Contentful Paint (LCP)': <Clock className="w-6 h-6" />,
+      'Cumulative Layout Shift (CLS)': <Target className="w-6 h-6" />,
+      'Interaction to Next Paint (INP)': <Activity className="w-6 h-6" />,
+      'First Input Delay (FID)': <Zap className="w-6 h-6" />,
+      'Time to First Byte (TTFB)': <TrendingUp className="w-6 h-6" />
+    };
 
     return (
-      <div className={`border rounded-lg p-4 bg-${color}-50 border-${color}-200`}>
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="font-medium text-gray-800">{title}</h4>
-          <span className={`text-lg font-bold ${getScoreColor(goodPercentage)}`}>
-            {goodPercentage}%
-          </span>
-        </div>
+      <div className={`group relative p-6 rounded-2xl border bg-gradient-to-br ${colorClasses[color]} backdrop-blur-md hover:scale-105 transition-all duration-500`}>
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-slate-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         
-        {/* Pie Chart Visualization */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="w-24 h-24 relative">
-            {chartData.map((segment, index) => {
-              // Calculate the segment angles for the pie chart
-              const total = chartData.reduce((sum, item) => sum + item.value, 0);
-              const startAngle = chartData.slice(0, index).reduce((sum, item) => sum + (item.value / total) * 360, 0);
-              const endAngle = startAngle + (segment.value / total) * 360;
-              
-              // Skip segments with 0 value
-              if (segment.value === 0) return null;
-              
-              return (
-                <div 
-                  key={segment.name}
-                  className="absolute inset-0"
-                  style={{
-                    background: `conic-gradient(${segment.color} ${startAngle}deg, ${segment.color} ${endAngle}deg, transparent ${endAngle}deg)`,
-                    clipPath: 'circle(50%)',
-                  }}
-                />
-              );
-            })}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="bg-white rounded-full w-12 h-12 flex items-center justify-center">
-                <span className="text-xs font-medium">{metric.p75.toFixed(0)}{unit}</span>
+        <div className="relative">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className={`p-3 rounded-xl border ${color === 'blue' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : color === 'green' ? 'bg-green-500/10 border-green-500/20 text-green-400' : color === 'purple' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : color === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                {iconComponents[title] || <Activity className="w-6 h-6" />}
               </div>
+              <div>
+                <h4 className="text-lg font-bold text-slate-100">{title}</h4>
+                <p className="text-sm text-slate-400">{metric.p75.toFixed(0)}{unit} (75th percentile)</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold mb-1" style={{ color: scoreColor }}>
+                {goodPercentage}%
+              </div>
+              <div className="text-xs text-slate-400">Good</div>
             </div>
           </div>
           
-          <div className="flex flex-col space-y-2">
-            {chartData.map(segment => (
-              <div key={segment.name} className="flex items-center">
-                <div className="w-3 h-3 mr-2" style={{ backgroundColor: segment.color }}></div>
-                <span className="text-xs">{segment.name}: {segment.value}%</span>
-              </div>
-            ))}
+          {/* Horizontal Bar Chart */}
+          <div className="mb-4">
+            <div style={{ height: '120px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} layout="horizontal" margin={{ top: 5, right: 30, left: 80, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis type="number" stroke="#94a3b8" domain={[0, 100]} />
+                  <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '8px',
+                      color: '#e2e8f0'
+                    }}
+                    formatter={(value) => [`${value}%`, 'Percentage']}
+                  />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {chartData.map((entry, index) => (
+                      <Bar key={`bar-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
-        
-        <div className="mb-2">
-          <div className="flex justify-between text-sm text-gray-600 mb-1">
-            <span>Good: {goodPercentage}%</span>
-            <span>{metric.p75.toFixed(0)}{unit} (75th percentile)</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div className="bg-green-500 h-2 rounded-full" style={{ width: `${goodPercentage}%` }}></div>
-            <div className="bg-yellow-500 h-2 rounded-full -mt-2" style={{ width: `${needsImprovementPercentage}%`, marginLeft: `${goodPercentage}%` }}></div>
-            <div className="bg-red-500 h-2 rounded-full -mt-2" style={{ width: `${poorPercentage}%`, marginLeft: `${goodPercentage + needsImprovementPercentage}%` }}></div>
-          </div>
-        </div>
-        
-        <div className="text-xs text-gray-500">
-          <div className="flex justify-between">
-            <span>Needs Improvement: {needsImprovementPercentage}%</span>
-            <span>Poor: {poorPercentage}%</span>
+          
+          {/* Performance Breakdown */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="p-3 bg-slate-900/30 rounded-lg border border-slate-800/40 text-center">
+              <div className="text-lg font-bold text-green-400">{goodPercentage}%</div>
+              <div className="text-xs text-slate-400">Good</div>
+            </div>
+            <div className="p-3 bg-slate-900/30 rounded-lg border border-slate-800/40 text-center">
+              <div className="text-lg font-bold text-yellow-400">{needsImprovementPercentage}%</div>
+              <div className="text-xs text-slate-400">Needs Work</div>
+            </div>
+            <div className="p-3 bg-slate-900/30 rounded-lg border border-slate-800/40 text-center">
+              <div className="text-lg font-bold text-red-400">{poorPercentage}%</div>
+              <div className="text-xs text-slate-400">Poor</div>
+            </div>
           </div>
         </div>
       </div>
     );
   };
 
-  const renderFormFactorSection = (title, metrics, icon) => {
+  const renderFormFactorSection = (title, metrics, icon, description) => {
     if (!metrics) return null;
     
     return (
-      <div className="mb-8">
-        <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-          {icon}
-          {title}
-        </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="space-y-6">
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            {icon}
+            <h3 className="text-3xl font-bold text-slate-100">{title}</h3>
+          </div>
+          <p className="text-xl text-slate-400">{description}</p>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {renderMetricCard('Largest Contentful Paint (LCP)', metrics.lcp, 'blue', 'ms')}
           {renderMetricCard('Cumulative Layout Shift (CLS)', metrics.cls, 'purple', '')}
           {renderMetricCard('Interaction to Next Paint (INP)', metrics.inp, 'green', 'ms')}
@@ -347,96 +416,145 @@ const CoreWebVitalsDisplay = ({ data }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-12">
       {/* Overall Score */}
-      <div className={`border rounded-lg p-6 ${
-        data.summary.overallScore >= 90 
-          ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
-          : data.summary.overallScore >= 75
-          ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200'
-          : 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200'
-      }`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-xl font-bold text-gray-800">Core Web Vitals Score</h3>
-            <p className="text-gray-600">Based on real user data from Chrome UX Report</p>
-          </div>
-          <div className="text-right">
-            <div className={`text-4xl font-bold ${
-              data.summary.overallScore >= 90 ? 'text-green-600' : 
-              data.summary.overallScore >= 75 ? 'text-yellow-600' : 'text-red-600'
-            }`}>
-              {data.summary.overallScore}/100
+      <div className="group relative p-8 bg-gradient-to-br from-slate-900/40 to-slate-800/30 rounded-2xl border border-slate-700/40 backdrop-blur-md">
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-slate-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        
+        <div className="relative">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-2xl font-bold text-slate-100 mb-2">Core Web Vitals Assessment</h3>
+              <p className="text-slate-400">Based on {data.recordCount?.toLocaleString()} real user sessions from Chrome UX Report</p>
             </div>
-            <div className="text-sm text-gray-600">
-              {data.summary.status}
+            <div className="text-right">
+              <div className={`text-5xl font-bold mb-2 ${
+                data.summary?.overallScore >= 90 ? 'text-green-400' : 
+                data.summary?.overallScore >= 75 ? 'text-yellow-400' : 'text-red-400'
+              }`}>
+                {data.summary?.overallScore || 0}
+              </div>
+              <div className="text-sm text-slate-400">
+                {data.summary?.status || 'Unknown'}
+              </div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-4 bg-slate-900/30 rounded-xl border border-slate-800/40">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-300">Coverage Period</span>
+                <span className="font-semibold text-slate-200">28 Days</span>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-900/30 rounded-xl border border-slate-800/40">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-300">Data Source</span>
+                <span className="font-semibold text-slate-200">Chrome UX Report</span>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-900/30 rounded-xl border border-slate-800/40">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-300">Analysis Date</span>
+                <span className="font-semibold text-slate-200">{new Date(data.timestamp).toLocaleDateString()}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Data Coverage */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-800 mb-2">Data Coverage</h4>
-        <p className="text-blue-700 text-sm">
-          Analysis based on {data.recordCount.toLocaleString()} real user page views from Chrome users over the last 28 days.
-        </p>
-      </div>
-
-      {/* Mobile Metrics (Primary) */}
+      {/* Mobile Performance */}
       {renderFormFactorSection(
-        'Mobile Performance (Primary)',
-        data.formFactors.mobile,
-        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-        </svg>
+        'Mobile Performance Analysis',
+        data.formFactors?.mobile,
+        <Smartphone className="w-8 h-8 text-blue-400" />,
+        'Performance metrics from mobile device users - the primary focus for Core Web Vitals'
       )}
 
-      {/* Desktop Metrics */}
+      {/* Desktop Performance */}
       {renderFormFactorSection(
-        'Desktop Performance',
-        data.formFactors.desktop,
-        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-        </svg>
+        'Desktop Performance Analysis',
+        data.formFactors?.desktop,
+        <Monitor className="w-8 h-8 text-green-400" />,
+        'Performance metrics from desktop users with typically faster connections and processing power'
       )}
 
-      {/* Tablet Metrics */}
+      {/* Tablet Performance */}
       {renderFormFactorSection(
-        'Tablet Performance',
-        data.formFactors.tablet,
-        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
-        </svg>
+        'Tablet Performance Analysis',
+        data.formFactors?.tablet,
+        <Tablet className="w-8 h-8 text-purple-400" />,
+        'Performance metrics from tablet users representing mid-range device capabilities'
       )}
 
       {/* Recommendations */}
-      {data.summary.recommendations && data.summary.recommendations.length > 0 && (
-        <div>
-          <h4 className="text-lg font-semibold text-gray-800 mb-4">Recommendations</h4>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <ul className="space-y-2">
+      {data.summary?.recommendations && data.summary.recommendations.length > 0 && (
+        <div className="group relative p-8 bg-gradient-to-br from-green-950/30 to-slate-900/40 rounded-2xl border border-green-800/30 backdrop-blur-md hover:border-green-700/50 transition-all duration-500">
+          <div className="absolute inset-0 bg-gradient-to-br from-transparent via-slate-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          
+          <div className="relative">
+            <h3 className="text-2xl font-bold text-slate-100 mb-6 flex items-center gap-3">
+              <CheckCircle className="w-8 h-8 text-green-400" />
+              Performance Recommendations
+            </h3>
+            
+            <div className="space-y-4">
               {data.summary.recommendations.map((rec, index) => (
-                <li key={index} className="flex items-start">
-                  <svg className="w-5 h-5 text-green-500 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                  <span className="text-green-800">{rec}</span>
-                </li>
+                <div key={index} className="flex items-start gap-4 p-4 bg-slate-900/30 rounded-xl border border-slate-800/40">
+                  <div className="p-2 bg-green-500/10 rounded-lg border border-green-500/20">
+                    <TrendingUp className="w-5 h-5 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-slate-200 font-medium mb-1">Optimization Opportunity</p>
+                    <p className="text-slate-400 text-sm">{rec}</p>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Analysis Info */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <h4 className="font-medium text-gray-800 mb-2">Analysis Information</h4>
-        <div className="text-sm text-gray-600 space-y-1">
-          <p>• Data source: Chrome UX Report (CrUX) - Real user metrics</p>
-          <p>• Time period: Last 28 days</p>
-          <p>• Coverage: {data.origin || data.url}</p>
-          <p>• Analysis timestamp: {new Date(data.timestamp).toLocaleString()}</p>
+      {/* Analysis Information */}
+      <div className="group relative p-8 bg-gradient-to-br from-slate-900/40 to-slate-800/30 rounded-2xl border border-slate-700/40 backdrop-blur-md">
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-slate-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        
+        <div className="relative">
+          <h3 className="text-xl font-bold text-slate-100 mb-6">Analysis Metadata</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg border border-slate-800/40">
+                <span className="text-slate-400">Time Period</span>
+                <span className="text-slate-200 font-medium">Last 28 Days</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg border border-slate-800/40">
+                <span className="text-slate-400">Origin Coverage</span>
+                <span className="text-slate-200 font-medium">{data.origin || data.url || 'Website'}</span>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg border border-slate-800/40">
+                <span className="text-slate-400">Analysis Timestamp</span>
+                <span className="text-slate-200 font-medium">{new Date(data.timestamp).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-slate-900/30 rounded-lg border border-slate-800/40">
+                <span className="text-slate-400">User Sessions</span>
+                <span className="text-slate-200 font-medium">{data.recordCount?.toLocaleString() || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-6 p-4 bg-blue-950/20 rounded-xl border border-blue-800/30">
+            <h4 className="text-lg font-bold text-blue-200 mb-3">About Chrome UX Report Data</h4>
+            <div className="text-sm text-slate-300 space-y-2">
+              <p>• Real user metrics collected from Chrome browsers with user consent</p>
+              <p>• Data aggregated across all users visiting your site over the last 28 days</p>
+              <p>• Form factors include mobile, desktop, and tablet devices</p>
+              <p>• Metrics represent actual user experience, not synthetic lab tests</p>
+              <p>• Data is updated monthly and may have a delay of 1-2 weeks</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
