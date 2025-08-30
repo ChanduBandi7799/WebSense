@@ -1317,42 +1317,7 @@ export class WebsiteAnalysisService {
     }
   }
 
-  // Core Web Vitals Analysis (non-API via Lighthouse lab data)
-  async analyzeCoreWebVitals(url: string) {
-    try {
-      console.log(`Starting Core Web Vitals (CrUX) analysis for: ${url}`);
-      
-      // Validate URL
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url;
-      }
 
-      // Original Core Web Vitals (CrUX API)
-      const urlObj = new URL(url);
-      const origin = urlObj.origin;
-      const result = await this.runCoreWebVitalsAnalysis(origin);
-      
-      console.log('Core Web Vitals analysis completed');
-      
-      return {
-        url: url,
-        origin: origin,
-        success: true,
-        timestamp: new Date().toISOString(),
-        ...result
-      };
-      
-    } catch (error) {
-      console.error('Core Web Vitals analysis error:', error);
-      return {
-        url: url,
-        success: false,
-        error: true,
-        message: `Failed to analyze Core Web Vitals: ${error.message}`,
-        timestamp: new Date().toISOString()
-      };
-    }
-  }
 
   // Non-API Mobile-Friendly heuristic analysis
   private async analyzeMobileFriendlyWithoutApi(url: string) {
@@ -1915,5 +1880,1770 @@ export class WebsiteAnalysisService {
         reject(new Error('Request timeout'));
       });
     });
+  }
+
+  async analyzePrivacyTracking(url: string) {
+    try {
+      console.log(`Analyzing privacy and tracking for: ${url}`);
+      
+      // Fetch the website HTML
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch website: ${response.status} ${response.statusText}`);
+      }
+      
+      const html = await response.text();
+      
+      // Extract comprehensive data
+      const trackers = this.extractTrackers(html, url);
+      const externalResources = this.extractExternalResources(html, url);
+      const metaData = this.extractMetaData(html);
+      const structuredData = this.extractStructuredData(html);
+      const performanceData = this.extractPerformanceData(html);
+      const securityData = this.extractSecurityData(html, url);
+      
+      return {
+        success: true,
+        url,
+        trackers,
+        externalResources,
+        metaData,
+        structuredData,
+        performanceData,
+        securityData,
+        summary: {
+          totalTrackers: trackers.length,
+          analyticsCount: trackers.filter(t => t.type === 'Analytics').length,
+          adsCount: trackers.filter(t => t.type === 'Ads').length,
+          trackerCount: trackers.filter(t => t.type === 'Tracker').length,
+          suspiciousCount: trackers.filter(t => t.riskLevel === 'High').length,
+          externalResourcesCount: externalResources.length,
+          metaTagsCount: metaData.length,
+          structuredDataCount: structuredData.length
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      console.error('Privacy tracking analysis failed:', error);
+      return {
+        success: false,
+        message: error.message,
+        url,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  private extractExternalResources(html: string, baseUrl: string): any[] {
+    const resources: any[] = [];
+    const baseDomain = this.extractDomain(baseUrl, baseUrl);
+    
+    // Extract all external resources
+    const patterns = [
+      { type: 'CSS', regex: /<link[^>]*href=["']([^"']+)["'][^>]*>/gi },
+      { type: 'Image', regex: /<img[^>]*src=["']([^"']+)["'][^>]*>/gi },
+      { type: 'Font', regex: /<link[^>]*href=["']([^"']+)["'][^>]*rel=["'](?:preload|stylesheet)["'][^>]*>/gi },
+      { type: 'Video', regex: /<video[^>]*src=["']([^"']+)["'][^>]*>/gi },
+      { type: 'Audio', regex: /<audio[^>]*src=["']([^"']+)["'][^>]*>/gi },
+      { type: 'Object', regex: /<object[^>]*data=["']([^"']+)["'][^>]*>/gi },
+      { type: 'Embed', regex: /<embed[^>]*src=["']([^"']+)["'][^>]*>/gi }
+    ];
+    
+    patterns.forEach(pattern => {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.regex.exec(html)) !== null) {
+        const resourceUrl = match[1];
+        const domain = this.extractDomain(resourceUrl, baseUrl);
+        
+        if (domain && domain !== baseDomain) {
+          resources.push({
+            type: pattern.type,
+            url: resourceUrl,
+            domain: domain,
+            category: this.categorizeResource(domain, pattern.type)
+          });
+        }
+      }
+    });
+    
+    return resources;
+  }
+
+  private extractMetaData(html: string): any[] {
+    const metaData: any[] = [];
+    
+    // Extract meta tags
+    const metaRegex = /<meta[^>]*>/gi;
+    let match: RegExpExecArray | null;
+    
+    while ((match = metaRegex.exec(html)) !== null) {
+      const metaTag = match[0];
+      const nameMatch = metaTag.match(/name=["']([^"']+)["']/i);
+      const propertyMatch = metaTag.match(/property=["']([^"']+)["']/i);
+      const contentMatch = metaTag.match(/content=["']([^"']+)["']/i);
+      
+      if ((nameMatch || propertyMatch) && contentMatch) {
+        metaData.push({
+          name: nameMatch ? nameMatch[1] : (propertyMatch ? propertyMatch[1] : ''),
+          content: contentMatch[1],
+          type: nameMatch ? 'name' : 'property'
+        });
+      }
+    }
+    
+    return metaData;
+  }
+
+  private extractStructuredData(html: string): any[] {
+    const structuredData: any[] = [];
+    
+    // Extract JSON-LD structured data
+    const jsonLdRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    let match: RegExpExecArray | null;
+    
+    while ((match = jsonLdRegex.exec(html)) !== null) {
+      try {
+        const jsonData = JSON.parse(match[1]);
+        structuredData.push({
+          type: 'JSON-LD',
+          data: jsonData,
+          '@type': jsonData['@type'] || 'Unknown'
+        });
+      } catch (e) {
+        // Invalid JSON, skip
+      }
+    }
+    
+    // Extract microdata
+    const microdataRegex = /itemtype=["']([^"']+)["']/gi;
+    while ((match = microdataRegex.exec(html)) !== null) {
+      structuredData.push({
+        type: 'Microdata',
+        schema: match[1]
+      });
+    }
+    
+    return structuredData;
+  }
+
+  private extractPerformanceData(html: string): any {
+    const performanceData: any = {
+      images: 0,
+      scripts: 0,
+      stylesheets: 0,
+      externalResources: 0,
+      inlineScripts: 0,
+      inlineStyles: 0
+    };
+    
+    // Count various elements
+    performanceData.images = (html.match(/<img[^>]*>/gi) || []).length;
+    performanceData.scripts = (html.match(/<script[^>]*>/gi) || []).length;
+    performanceData.stylesheets = (html.match(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi) || []).length;
+    performanceData.externalResources = (html.match(/https?:\/\/[^\s"'<>]+/gi) || []).length;
+    performanceData.inlineScripts = (html.match(/<script[^>]*>[\s\S]*?<\/script>/gi) || []).length;
+    performanceData.inlineStyles = (html.match(/<style[^>]*>[\s\S]*?<\/style>/gi) || []).length;
+    
+    return performanceData;
+  }
+
+  private extractSecurityData(html: string, url: string): any {
+    const securityData: any = {
+      hasHttps: url.startsWith('https://'),
+      hasCSP: false,
+      hasHSTS: false,
+      hasXFrameOptions: false,
+      hasXContentTypeOptions: false,
+      hasReferrerPolicy: false,
+      hasPermissionsPolicy: false
+    };
+    
+    // Check for security-related meta tags and headers
+    const cspRegex = /<meta[^>]*http-equiv=["']Content-Security-Policy["'][^>]*>/gi;
+    const hstsRegex = /<meta[^>]*http-equiv=["']Strict-Transport-Security["'][^>]*>/gi;
+    
+    securityData.hasCSP = cspRegex.test(html);
+    securityData.hasHSTS = hstsRegex.test(html);
+    
+    return securityData;
+  }
+
+  private categorizeResource(domain: string, type: string): string {
+    const cdnPatterns = ['cdn', 'static', 'assets', 'media', 'img', 'images'];
+    const fontPatterns = ['fonts', 'font', 'typekit', 'googleapis'];
+    const videoPatterns = ['youtube', 'vimeo', 'dailymotion', 'twitch'];
+    
+    const domainLower = domain.toLowerCase();
+    
+    if (cdnPatterns.some(pattern => domainLower.includes(pattern))) return 'CDN';
+    if (fontPatterns.some(pattern => domainLower.includes(pattern))) return 'Font';
+    if (videoPatterns.some(pattern => domainLower.includes(pattern))) return 'Video';
+    if (type === 'Image') return 'Image';
+    if (type === 'CSS') return 'Stylesheet';
+    
+    return 'Other';
+  }
+
+  private extractTrackers(html: string, baseUrl: string): any[] {
+    const trackers: any[] = [];
+    const knownTrackers = this.getKnownTrackers();
+    const baseDomain = this.extractDomain(baseUrl, baseUrl);
+    
+    console.log(`Extracting trackers from ${baseUrl} (base domain: ${baseDomain})`);
+    
+    // Extract script sources with more comprehensive patterns
+    const scriptRegex = /<script[^>]*src=["']([^"']+)["'][^>]*>/gi;
+    let match: RegExpExecArray | null;
+    
+    while ((match = scriptRegex.exec(html)) !== null) {
+      const scriptUrl = match[1];
+      const domain = this.extractDomain(scriptUrl, baseUrl);
+      
+      if (domain && domain !== baseDomain) {
+        const tracker = this.identifyTracker(domain, knownTrackers);
+        if (tracker) {
+          trackers.push(tracker);
+        }
+      }
+    }
+    
+    // Extract script tags with data attributes (common for tracking)
+    const scriptDataRegex = /<script[^>]*data-[^=]+=["']([^"']+)["'][^>]*>/gi;
+    while ((match = scriptDataRegex.exec(html)) !== null) {
+      const dataValue = match[1];
+      if (dataValue.includes('http') || dataValue.includes('//')) {
+        let url = dataValue;
+        if (url.startsWith('//')) {
+          url = 'https:' + url;
+        }
+        const domain = this.extractDomain(url, baseUrl);
+        if (domain && domain !== baseDomain) {
+          const tracker = this.identifyTracker(domain, knownTrackers);
+          if (tracker) {
+            trackers.push(tracker);
+          }
+        }
+      }
+    }
+    
+    // Extract iframe sources
+    const iframeRegex = /<iframe[^>]*src=["']([^"']+)["'][^>]*>/gi;
+    while ((match = iframeRegex.exec(html)) !== null) {
+      const iframeUrl = match[1];
+      const domain = this.extractDomain(iframeUrl, baseUrl);
+      
+      if (domain && domain !== baseDomain) {
+        const tracker = this.identifyTracker(domain, knownTrackers);
+        if (tracker) {
+          trackers.push(tracker);
+        }
+      }
+    }
+    
+    // Extract link hrefs (for external resources)
+    const linkRegex = /<link[^>]*href=["']([^"']+)["'][^>]*>/gi;
+    while ((match = linkRegex.exec(html)) !== null) {
+      const linkUrl = match[1];
+      const domain = this.extractDomain(linkUrl, baseUrl);
+      
+      if (domain && domain !== baseDomain) {
+        const tracker = this.identifyTracker(domain, knownTrackers);
+        if (tracker) {
+          trackers.push(tracker);
+        }
+      }
+    }
+    
+    // Extract img sources (for tracking pixels)
+    const imgRegex = /<img[^>]*src=["']([^"']+)["'][^>]*>/gi;
+    while ((match = imgRegex.exec(html)) !== null) {
+      const imgUrl = match[1];
+      const domain = this.extractDomain(imgUrl, baseUrl);
+      
+      if (domain && domain !== baseDomain) {
+        const tracker = this.identifyTracker(domain, knownTrackers);
+        if (tracker) {
+          trackers.push(tracker);
+        }
+      }
+    }
+    
+    // Extract form actions
+    const formRegex = /<form[^>]*action=["']([^"']+)["'][^>]*>/gi;
+    while ((match = formRegex.exec(html)) !== null) {
+      const formUrl = match[1];
+      const domain = this.extractDomain(formUrl, baseUrl);
+      
+      if (domain && domain !== baseDomain) {
+        const tracker = this.identifyTracker(domain, knownTrackers);
+        if (tracker) {
+          trackers.push(tracker);
+        }
+      }
+    }
+    
+    // Extract object/embed sources
+    const objectRegex = /<(object|embed)[^>]*src=["']([^"']+)["'][^>]*>/gi;
+    while ((match = objectRegex.exec(html)) !== null) {
+      const objectUrl = match[2];
+      const domain = this.extractDomain(objectUrl, baseUrl);
+      
+      if (domain && domain !== baseDomain) {
+        const tracker = this.identifyTracker(domain, knownTrackers);
+        if (tracker) {
+          trackers.push(tracker);
+        }
+      }
+    }
+    
+    // Extract from inline scripts with enhanced patterns
+    const inlineScriptRegex = /<script[^>]*>([^<]+)<\/script>/gi;
+    while ((match = inlineScriptRegex.exec(html)) !== null) {
+      const scriptContent = match[1];
+      
+      // Look for URLs in script content with more patterns
+      const urlPatterns = [
+        /['"`](https?:\/\/[^'"`]+)['"`]/g,
+        /['"`](\/\/[^'"`]+\.[^'"`]+)['"`]/g,  // Protocol-relative URLs
+        /['"`]([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^'"`]*)['"`]/g,  // Domain patterns
+        /['"`]([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\/[^'"`]*)['"`]/g,  // Domain with path
+        /['"`]([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\?[^'"`]*)['"`]/g,  // Domain with query
+        /['"`]([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}#[^'"`]*)['"`]/g   // Domain with hash
+      ];
+      
+      urlPatterns.forEach(pattern => {
+        let urlMatch: RegExpExecArray | null;
+        while ((urlMatch = pattern.exec(scriptContent)) !== null) {
+          let scriptUrl = urlMatch[1];
+          if (scriptUrl.startsWith('//')) {
+            scriptUrl = 'https:' + scriptUrl;
+          }
+          const domain = this.extractDomain(scriptUrl, baseUrl);
+          
+          if (domain && domain !== baseDomain) {
+            const tracker = this.identifyTracker(domain, knownTrackers);
+            if (tracker) {
+              trackers.push(tracker);
+            }
+          }
+        }
+      });
+      
+      // Enhanced tracking function patterns - MUCH MORE COMPREHENSIVE
+      const trackingPatterns = [
+        // Google Analytics
+        /gtag\([^)]*['"`]([^'"`]+)['"`]/g,
+        /_gaq\.push\([^)]*['"`]([^'"`]+)['"`]/g,
+        /ga\([^)]*['"`]([^'"`]+)['"`]/g,
+        /googletagmanager\.com\/gtm\.js\?id=([^'"`&]+)/g,
+        /google-analytics\.com\/analytics\.js/g,
+        /googletagmanager\.com/g,
+        /analytics\.google\.com/g,
+        
+        // Facebook
+        /fbq\([^)]*['"`]([^'"`]+)['"`]/g,
+        /facebook\.com\/tr\?id=([^'"`&]+)/g,
+        /pixel\.facebook\.com\/tr\?id=([^'"`&]+)/g,
+        /connect\.facebook\.net/g,
+        /facebook\.com/g,
+        
+        // LinkedIn
+        /snap\.licdn\.com\/li\.lms-analytics\/insight\.min\.js/g,
+        /linkedin\.com/g,
+        /licdn\.com/g,
+        
+        // Twitter/X
+        /analytics\.twitter\.com\/i\/adsct/g,
+        /twitter\.com/g,
+        /t\.co/g,
+        
+        // Snapchat
+        /tr\.snapchat\.com\/pixel/g,
+        /snapchat\.com/g,
+        
+        // TikTok
+        /analytics\.tiktok\.com\/i18n\/pixel/g,
+        /tiktok\.com/g,
+        
+        // Other Analytics
+        /_paq\.push\([^)]*['"`]([^'"`]+)['"`]/g,
+        /mixpanel\.track\([^)]*['"`]([^'"`]+)['"`]/g,
+        /amplitude\.logEvent\([^)]*['"`]([^'"`]+)['"`]/g,
+        /hotjar\._hjSettings\.hjid\s*=\s*['"`]([^'"`]+)['"`]/g,
+        /hotjar\.com/g,
+        /mixpanel\.com/g,
+        /amplitude\.com/g,
+        /posthog\.com/g,
+        /clarity\.ms/g,
+        /plausible\.io/g,
+        /fathom\.com/g,
+        /simpleanalytics\.com/g,
+        
+        // Advertising
+        /googlesyndication\.com/g,
+        /doubleclick\.net/g,
+        /googleadservices\.com/g,
+        /amazon-adsystem\.com/g,
+        /amazon\.com/g,
+        /criteo\.com/g,
+        /taboola\.com/g,
+        /outbrain\.com/g,
+        /adnxs\.com/g,
+        /rubiconproject\.com/g,
+        /pubmatic\.com/g,
+        /openx\.net/g,
+        /adform\.net/g,
+        /adtech\.com/g,
+        /advertising\.com/g,
+        
+        // Social Media
+        /instagram\.com/g,
+        /pinterest\.com/g,
+        /reddit\.com/g,
+        /youtube\.com/g,
+        /vimeo\.com/g,
+        /twitch\.tv/g,
+        /discord\.com/g,
+        /telegram\.org/g,
+        /whatsapp\.com/g,
+        
+        // Customer Support
+        /intercom\.com/g,
+        /zendesk\.com/g,
+        /freshdesk\.com/g,
+        /helpscout\.com/g,
+        /tawk\.to/g,
+        /crisp\.chat/g,
+        /olark\.com/g,
+        /livechatinc\.com/g,
+        /tidio\.co/g,
+        /userlike\.com/g,
+        
+        // Payment Processors
+        /stripe\.com/g,
+        /paypal\.com/g,
+        /squareup\.com/g,
+        /braintreepayments\.com/g,
+        /adyen\.com/g,
+        /klarna\.com/g,
+        /affirm\.com/g,
+        
+        // CDNs and Static Assets
+        /cdnjs\.cloudflare\.com/g,
+        /unpkg\.com/g,
+        /jsdelivr\.net/g,
+        /cdn\.jsdelivr\.net/g,
+        /bootstrapcdn\.com/g,
+        /maxcdn\.com/g,
+        /fastly\.com/g,
+        /cloudflare\.com/g,
+        
+        // Security and Authentication
+        /recaptcha\.net/g,
+        /hcaptcha\.com/g,
+        /turnstile\.cloudflare\.com/g,
+        /auth0\.com/g,
+        /clerk\.com/g,
+        /supabase\.com/g,
+        /firebase\.com/g,
+        
+        // Search and Discovery
+        /algolia\.net/g,
+        /elastic\.co/g,
+        /search\.google\.com/g,
+        
+        // Comments and Community
+        /disqus\.com/g,
+        /gravatar\.com/g,
+        /wordpress\.com/g,
+        
+        // Email Marketing
+        /mailchimp\.com/g,
+        /sendgrid\.com/g,
+        /klaviyo\.com/g,
+        /convertkit\.com/g,
+        /activecampaign\.com/g,
+        /drip\.com/g,
+        
+        // E-commerce
+        /shopify\.com/g,
+        /woocommerce\.com/g,
+        /bigcommerce\.com/g,
+        /magento\.com/g,
+        /prestashop\.com/g,
+        
+        // Video and Media
+        /wistia\.com/g,
+        /vimeo\.com/g,
+        /brightcove\.com/g,
+        /jwplayer\.com/g,
+        /flowplayer\.com/g,
+        
+        // Maps and Location
+        /maps\.google\.com/g,
+        /maps\.bing\.com/g,
+        /mapbox\.com/g,
+        /here\.com/g,
+        
+        // Weather and Data
+        /openweathermap\.org/g,
+        /weather\.com/g,
+        /ipapi\.co/g,
+        /ipinfo\.io/g,
+        /ip-api\.com/g,
+        
+        // Development and Monitoring
+        /sentry\.io/g,
+        /logrocket\.com/g,
+        /fullstory\.com/g,
+        /mouseflow\.com/g,
+        /luckyorange\.com/g,
+        /inspectlet\.com/g,
+        /crazyegg\.com/g,
+        /optimizely\.com/g,
+        /vwo\.com/g,
+        /abtasty\.com/g,
+        
+        // Content and CMS
+        /contentful\.com/g,
+        /sanity\.io/g,
+        /strapi\.io/g,
+        /ghost\.org/g,
+        /medium\.com/g,
+        
+        // Forms and Surveys
+        /typeform\.com/g,
+        /survey\.monkey\.com/g,
+        /qualtrics\.com/g,
+        /google\.com\/forms/g,
+        /microsoft\.com\/forms/g,
+        
+        // Communication
+        /slack\.com/g,
+        /teams\.microsoft\.com/g,
+        /zoom\.us/g,
+        /meet\.google\.com/g,
+        /webex\.com/g,
+        
+        // File Storage and Sharing
+        /dropbox\.com/g,
+        /drive\.google\.com/g,
+        /onedrive\.live\.com/g,
+        /box\.com/g,
+        /aws\.amazon\.com/g,
+        /cloud\.google\.com/g,
+        /azure\.microsoft\.com/g
+      ];
+      
+      trackingPatterns.forEach(pattern => {
+        let urlMatch: RegExpExecArray | null;
+        while ((urlMatch = pattern.exec(scriptContent)) !== null) {
+          const trackingUrl = urlMatch[1] || urlMatch[0];
+          if (trackingUrl.includes('.') || trackingUrl.includes('facebook') || trackingUrl.includes('google') || 
+              trackingUrl.includes('twitter') || trackingUrl.includes('linkedin') || trackingUrl.includes('tiktok') ||
+              trackingUrl.includes('snapchat') || trackingUrl.includes('instagram') || trackingUrl.includes('youtube')) {
+            const domain = this.extractDomain(trackingUrl, baseUrl);
+            if (domain && domain !== baseDomain) {
+              const tracker = this.identifyTracker(domain, knownTrackers);
+              if (tracker) {
+                trackers.push(tracker);
+              }
+            }
+          }
+        }
+      });
+      
+      // Extract variable assignments that might contain tracking URLs
+      const varPatterns = [
+        /var\s+\w+\s*=\s*['"`]([^'"`]+)['"`]/g,
+        /let\s+\w+\s*=\s*['"`]([^'"`]+)['"`]/g,
+        /const\s+\w+\s*=\s*['"`]([^'"`]+)['"`]/g,
+        /\w+\s*=\s*['"`]([^'"`]+)['"`]/g
+      ];
+      
+      varPatterns.forEach(pattern => {
+        let varMatch: RegExpExecArray | null;
+        while ((varMatch = pattern.exec(scriptContent)) !== null) {
+          const varValue = varMatch[1];
+          if (varValue.includes('http') || varValue.includes('//')) {
+            let url = varValue;
+            if (url.startsWith('//')) {
+              url = 'https:' + url;
+            }
+            const domain = this.extractDomain(url, baseUrl);
+            if (domain && domain !== baseDomain) {
+              const tracker = this.identifyTracker(domain, knownTrackers);
+              if (tracker) {
+                trackers.push(tracker);
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // Extract from data attributes with enhanced patterns
+    const dataAttrPatterns = [
+      /data-[^=]+=["']([^"']+)["']/gi,
+      /data-[^=]+=["']([^"']*https?:\/\/[^"']+)["']/gi,
+      /data-[^=]+=["']([^"']*\/\/[^"']+)["']/gi,
+      /data-[^=]+=["']([^"']*[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^"']*)["']/gi
+    ];
+    
+    dataAttrPatterns.forEach(pattern => {
+      while ((match = pattern.exec(html)) !== null) {
+        const dataValue = match[1];
+        if (dataValue.includes('http') || dataValue.includes('//') || dataValue.includes('.')) {
+          let url = dataValue;
+          if (url.startsWith('//')) {
+            url = 'https:' + url;
+          }
+          const domain = this.extractDomain(url, baseUrl);
+          if (domain && domain !== baseDomain) {
+            const tracker = this.identifyTracker(domain, knownTrackers);
+            if (tracker) {
+              trackers.push(tracker);
+            }
+          }
+        }
+      }
+    });
+    
+    // Extract from any attribute that might contain URLs
+    const attrPatterns = [
+      /(?:href|src|action|data-src|data-href|data-url|data-link)=["']([^"']+)["']/gi,
+      /(?:url|link|api|endpoint)=["']([^"']+)["']/gi,
+      /(?:tracking|analytics|pixel)=["']([^"']+)["']/gi
+    ];
+    
+    attrPatterns.forEach(pattern => {
+      while ((match = pattern.exec(html)) !== null) {
+        const attrValue = match[1];
+        if (attrValue.includes('http') || attrValue.includes('//') || attrValue.includes('.')) {
+          let url = attrValue;
+          if (url.startsWith('//')) {
+            url = 'https:' + url;
+          }
+          const domain = this.extractDomain(url, baseUrl);
+          if (domain && domain !== baseDomain) {
+            const tracker = this.identifyTracker(domain, knownTrackers);
+            if (tracker) {
+              trackers.push(tracker);
+            }
+          }
+        }
+      }
+    });
+    
+    // Extract from meta tags with enhanced patterns
+    const metaPatterns = [
+      /<meta[^>]*content=["']([^"']+)["'][^>]*>/gi,
+      /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/gi,
+      /<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["'][^>]*>/gi,
+      /<meta[^>]*property=["']og:url["'][^>]*content=["']([^"']+)["'][^>]*>/gi,
+      /<meta[^>]*name=["']canonical["'][^>]*content=["']([^"']+)["'][^>]*>/gi,
+      /<meta[^>]*name=["']author["'][^>]*content=["']([^"']+)["'][^>]*>/gi,
+      /<meta[^>]*name=["']publisher["'][^>]*content=["']([^"']+)["'][^>]*>/gi,
+      /<meta[^>]*name=["']application-name["'][^>]*content=["']([^"']+)["'][^>]*>/gi
+    ];
+    
+    metaPatterns.forEach(pattern => {
+      while ((match = pattern.exec(html)) !== null) {
+        const metaContent = match[1];
+        if (metaContent.includes('http') || metaContent.includes('//')) {
+          const domain = this.extractDomain(metaContent, baseUrl);
+          if (domain && domain !== baseDomain) {
+            const tracker = this.identifyTracker(domain, knownTrackers);
+            if (tracker) {
+              trackers.push(tracker);
+            }
+          }
+        }
+      }
+    });
+    
+    // Extract from link tags (more comprehensive)
+    const linkPatterns = [
+      /<link[^>]*href=["']([^"']+)["'][^>]*>/gi,
+      /<link[^>]*rel=["']preconnect["'][^>]*href=["']([^"']+)["'][^>]*>/gi,
+      /<link[^>]*rel=["']dns-prefetch["'][^>]*href=["']([^"']+)["'][^>]*>/gi,
+      /<link[^>]*rel=["']stylesheet["'][^>]*href=["']([^"']+)["'][^>]*>/gi,
+      /<link[^>]*rel=["']icon["'][^>]*href=["']([^"']+)["'][^>]*>/gi,
+      /<link[^>]*rel=["']apple-touch-icon["'][^>]*href=["']([^"']+)["'][^>]*>/gi
+    ];
+    
+    linkPatterns.forEach(pattern => {
+      while ((match = pattern.exec(html)) !== null) {
+        const linkUrl = match[1];
+        if (linkUrl.includes('http') || linkUrl.includes('//')) {
+          let url = linkUrl;
+          if (url.startsWith('//')) {
+            url = 'https:' + url;
+          }
+          const domain = this.extractDomain(url, baseUrl);
+          if (domain && domain !== baseDomain) {
+            const tracker = this.identifyTracker(domain, knownTrackers);
+            if (tracker) {
+              trackers.push(tracker);
+            }
+          }
+        }
+      }
+    });
+    
+    // Extract from CSS with enhanced patterns
+    const cssPatterns = [
+      /url\(['"]?([^'")\s]+)['"]?\)/gi,
+      /@import\s+['"`]([^'"`]+)['"`]/gi,
+      /background-image:\s*url\(['"]?([^'")\s]+)['"]?\)/gi,
+      /background:\s*url\(['"]?([^'")\s]+)['"]?\)/gi,
+      /src:\s*url\(['"]?([^'")\s]+)['"]?\)/gi,
+      /font-face\s*{[^}]*src:\s*url\(['"]?([^'")\s]+)['"]?\)[^}]*}/gi,
+      /@font-face\s*{[^}]*src:\s*url\(['"]?([^'")\s]+)['"]?\)[^}]*}/gi
+    ];
+    
+    cssPatterns.forEach(pattern => {
+      while ((match = pattern.exec(html)) !== null) {
+        const cssUrl = match[1];
+        if (cssUrl.startsWith('http') || cssUrl.startsWith('//')) {
+          let url = cssUrl;
+          if (url.startsWith('//')) {
+            url = 'https:' + url;
+          }
+          const domain = this.extractDomain(url, baseUrl);
+          if (domain && domain !== baseDomain) {
+            const tracker = this.identifyTracker(domain, knownTrackers);
+            if (tracker) {
+              trackers.push(tracker);
+            }
+          }
+        }
+      }
+    });
+    
+    // Extract from inline styles
+    const inlineStyleRegex = /style=["']([^"']+)["']/gi;
+    while ((match = inlineStyleRegex.exec(html)) !== null) {
+      const styleContent = match[1];
+      const urlRegex = /url\(['"]?([^'")\s]+)['"]?\)/gi;
+      let urlMatch: RegExpExecArray | null;
+      
+      while ((urlMatch = urlRegex.exec(styleContent)) !== null) {
+        const styleUrl = urlMatch[1];
+        if (styleUrl.startsWith('http') || styleUrl.startsWith('//')) {
+          let url = styleUrl;
+          if (url.startsWith('//')) {
+            url = 'https:' + url;
+          }
+          const domain = this.extractDomain(url, baseUrl);
+          if (domain && domain !== baseDomain) {
+            const tracker = this.identifyTracker(domain, knownTrackers);
+            if (tracker) {
+              trackers.push(tracker);
+            }
+          }
+        }
+      }
+    }
+    
+    // Extract from JSON-LD structured data
+    const jsonLdRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([^<]+)<\/script>/gi;
+    while ((match = jsonLdRegex.exec(html)) !== null) {
+      try {
+        const jsonContent = JSON.parse(match[1]);
+        const extractUrlsFromJson = (obj: any): string[] => {
+          const urls: string[] = [];
+          if (typeof obj === 'object' && obj !== null) {
+            Object.values(obj).forEach(value => {
+              if (typeof value === 'string' && (value.includes('http') || value.includes('//'))) {
+                urls.push(value);
+              } else if (typeof value === 'object') {
+                urls.push(...extractUrlsFromJson(value));
+              }
+            });
+          }
+          return urls;
+        };
+        
+        const urls = extractUrlsFromJson(jsonContent);
+        urls.forEach(url => {
+          const domain = this.extractDomain(url, baseUrl);
+          if (domain && domain !== baseDomain) {
+            const tracker = this.identifyTracker(domain, knownTrackers);
+            if (tracker) {
+              trackers.push(tracker);
+            }
+          }
+        });
+      } catch (e) {
+        // Ignore JSON parsing errors
+      }
+    }
+    
+    // Extract from comments (some trackers are hidden in comments)
+    const commentRegex = /<!--([^>]+)-->/gi;
+    while ((match = commentRegex.exec(html)) !== null) {
+      const commentContent = match[1];
+      const urlRegex = /(https?:\/\/[^\s]+)/gi;
+      let urlMatch: RegExpExecArray | null;
+      
+      while ((urlMatch = urlRegex.exec(commentContent)) !== null) {
+        const commentUrl = urlMatch[1];
+        const domain = this.extractDomain(commentUrl, baseUrl);
+        if (domain && domain !== baseDomain) {
+          const tracker = this.identifyTracker(domain, knownTrackers);
+          if (tracker) {
+            trackers.push(tracker);
+          }
+        }
+      }
+    }
+    
+    // Extract from any remaining URL patterns in the entire HTML
+    const generalUrlPatterns = [
+      /(https?:\/\/[^\s"'<>]+)/gi,
+      /(\/\/[^\s"'<>]+\.[^\s"'<>]+)/gi,
+      /([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s"'<>]*)/gi
+    ];
+    
+    generalUrlPatterns.forEach(pattern => {
+      while ((match = pattern.exec(html)) !== null) {
+        const url = match[1];
+        if (url.includes('.') && !url.startsWith('data:') && !url.startsWith('mailto:') && !url.startsWith('tel:')) {
+          let fullUrl = url;
+          if (url.startsWith('//')) {
+            fullUrl = 'https:' + url;
+          }
+          const domain = this.extractDomain(fullUrl, baseUrl);
+          if (domain && domain !== baseDomain) {
+            const tracker = this.identifyTracker(domain, knownTrackers);
+            if (tracker) {
+              trackers.push(tracker);
+            }
+          }
+        }
+      }
+    });
+    
+    // Extract from specific tracking patterns that might be embedded in HTML
+    const embeddedTrackingPatterns = [
+      /(?:tracking|analytics|pixel|beacon|monitor)\.([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi,
+      /(?:api|cdn|static|assets)\.([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi,
+      /(?:ads|advertising|marketing)\.([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi
+    ];
+    
+    embeddedTrackingPatterns.forEach(pattern => {
+      while ((match = pattern.exec(html)) !== null) {
+        const domain = match[1];
+        if (domain && domain !== baseDomain) {
+          const tracker = this.identifyTracker(domain, knownTrackers);
+          if (tracker) {
+            trackers.push(tracker);
+          }
+        }
+      }
+    });
+    
+    console.log(`Found ${trackers.length} potential trackers before deduplication`);
+    
+    // Remove duplicates based on domain
+    const uniqueTrackers = trackers.filter((tracker, index, self) => 
+      index === self.findIndex((t: any) => t.domain === tracker.domain)
+    );
+    
+    console.log(`Found ${uniqueTrackers.length} unique trackers after deduplication`);
+    
+    return uniqueTrackers;
+  }
+
+  private extractDomain(url: string, baseUrl: string): string | null {
+    try {
+      if (url.startsWith('//')) {
+        url = 'https:' + url;
+      } else if (url.startsWith('/')) {
+        const baseDomain = new URL(baseUrl).origin;
+        url = baseDomain + url;
+      } else if (!url.startsWith('http')) {
+        const baseDomain = new URL(baseUrl).origin;
+        url = baseDomain + '/' + url;
+      }
+      
+      return new URL(url).hostname;
+    } catch {
+      return null;
+    }
+  }
+
+  private identifyTracker(domain: string, knownTrackers: any[]): any {
+    // Clean the domain for better matching
+    const cleanDomain = domain.toLowerCase().replace(/^www\./, '');
+    
+    const tracker = knownTrackers.find(t => {
+      // Check if domain matches the main domain
+      if (cleanDomain.includes(t.domain.toLowerCase())) {
+        return true;
+      }
+      // Check if domain matches any of the known domains
+      return t.domains.some(d => cleanDomain.includes(d.toLowerCase()));
+    });
+    
+    if (tracker) {
+      return {
+        service: tracker.service,
+        type: tracker.type,
+        domain: domain,
+        riskLevel: tracker.riskLevel,
+        description: tracker.description
+      };
+    }
+    
+    // Enhanced classification for unknown domains
+    let type = 'Other';
+    let riskLevel = 'Medium';
+    let service = 'Unknown Tracker';
+    let description = 'Third-party domain not in known tracker database';
+    
+    // Try to classify based on domain patterns
+    if (cleanDomain.includes('analytics') || cleanDomain.includes('stats') || cleanDomain.includes('metric')) {
+      type = 'Analytics';
+      service = 'Analytics Service';
+      description = 'Analytics or metrics collection service';
+    } else if (cleanDomain.includes('ad') || cleanDomain.includes('ads') || cleanDomain.includes('banner') || cleanDomain.includes('pixel')) {
+      type = 'Ads';
+      service = 'Advertising Service';
+      description = 'Advertising or ad serving service';
+      riskLevel = 'High';
+    } else if (cleanDomain.includes('track') || cleanDomain.includes('monitor') || cleanDomain.includes('spy')) {
+      type = 'Tracker';
+      service = 'Tracking Service';
+      description = 'User tracking or monitoring service';
+      riskLevel = 'High';
+    } else if (cleanDomain.includes('cdn') || cleanDomain.includes('static') || cleanDomain.includes('assets')) {
+      type = 'Other';
+      service = 'CDN/Static Assets';
+      description = 'Content delivery network or static asset hosting';
+      riskLevel = 'Low';
+    } else if (cleanDomain.includes('api') || cleanDomain.includes('service')) {
+      type = 'Other';
+      service = 'API Service';
+      description = 'Third-party API or service integration';
+      riskLevel = 'Medium';
+    }
+    
+    return {
+      service,
+      type,
+      domain: domain,
+      riskLevel,
+      description
+    };
+  }
+
+  private getKnownTrackers() {
+    return [
+      // Google Services
+      {
+        service: 'Google Analytics',
+        type: 'Analytics',
+        domain: 'google-analytics.com',
+        domains: ['googletagmanager.com', 'google-analytics.com', 'analytics.google.com', 'www.googletagmanager.com'],
+        riskLevel: 'Medium',
+        description: 'Website analytics and user behavior tracking'
+      },
+      {
+        service: 'Google Ads',
+        type: 'Ads',
+        domain: 'doubleclick.net',
+        domains: ['doubleclick.net', 'googlesyndication.com', 'googleadservices.com', 'pagead2.googlesyndication.com'],
+        riskLevel: 'High',
+        description: 'Google advertising network tracking'
+      },
+      {
+        service: 'Google Tag Manager',
+        type: 'Analytics',
+        domain: 'googletagmanager.com',
+        domains: ['googletagmanager.com', 'www.googletagmanager.com'],
+        riskLevel: 'Medium',
+        description: 'Tag management and tracking orchestration'
+      },
+      {
+        service: 'Google Fonts',
+        type: 'Other',
+        domain: 'fonts.googleapis.com',
+        domains: ['fonts.googleapis.com', 'fonts.gstatic.com'],
+        riskLevel: 'Low',
+        description: 'Google Fonts CDN (may track font usage)'
+      },
+      {
+        service: 'Google Maps',
+        type: 'Other',
+        domain: 'maps.googleapis.com',
+        domains: ['maps.googleapis.com', 'maps.gstatic.com'],
+        riskLevel: 'Low',
+        description: 'Google Maps API (may track location data)'
+      },
+      {
+        service: 'Google reCAPTCHA',
+        type: 'Tracker',
+        domain: 'google.com',
+        domains: ['www.google.com', 'recaptcha.google.com'],
+        riskLevel: 'Medium',
+        description: 'Bot protection and user verification'
+      },
+
+      // Facebook Services
+      {
+        service: 'Facebook Pixel',
+        type: 'Ads',
+        domain: 'facebook.net',
+        domains: ['connect.facebook.net', 'facebook.com', 'www.facebook.com'],
+        riskLevel: 'High',
+        description: 'Facebook advertising and conversion tracking'
+      },
+      {
+        service: 'Facebook Social Plugin',
+        type: 'Tracker',
+        domain: 'facebook.com',
+        domains: ['facebook.com', 'www.facebook.com'],
+        riskLevel: 'Medium',
+        description: 'Facebook social media integration'
+      },
+
+      // Microsoft Services
+      {
+        service: 'Microsoft Clarity',
+        type: 'Analytics',
+        domain: 'clarity.ms',
+        domains: ['clarity.ms'],
+        riskLevel: 'Medium',
+        description: 'Microsoft user behavior analytics'
+      },
+      {
+        service: 'Microsoft Advertising',
+        type: 'Ads',
+        domain: 'bing.com',
+        domains: ['bing.com', 'bat.bing.com'],
+        riskLevel: 'High',
+        description: 'Microsoft advertising network'
+      },
+
+      // Social Media Trackers
+      {
+        service: 'LinkedIn Insight',
+        type: 'Ads',
+        domain: 'linkedin.com',
+        domains: ['linkedin.com', 'snap.licdn.com', 'px.ads.linkedin.com'],
+        riskLevel: 'Medium',
+        description: 'LinkedIn advertising and conversion tracking'
+      },
+      {
+        service: 'Twitter Pixel',
+        type: 'Ads',
+        domain: 'twitter.com',
+        domains: ['twitter.com', 't.co', 'analytics.twitter.com'],
+        riskLevel: 'Medium',
+        description: 'Twitter advertising and conversion tracking'
+      },
+      {
+        service: 'Pinterest Tag',
+        type: 'Ads',
+        domain: 'pinterest.com',
+        domains: ['pinterest.com', 'pinimg.com', 's.pinimg.com'],
+        riskLevel: 'Medium',
+        description: 'Pinterest advertising and conversion tracking'
+      },
+      {
+        service: 'TikTok Pixel',
+        type: 'Ads',
+        domain: 'tiktok.com',
+        domains: ['tiktok.com', 'analytics.tiktok.com'],
+        riskLevel: 'High',
+        description: 'TikTok advertising and conversion tracking'
+      },
+      {
+        service: 'Snapchat Pixel',
+        type: 'Ads',
+        domain: 'snapchat.com',
+        domains: ['snapchat.com', 'tr.snapchat.com'],
+        riskLevel: 'High',
+        description: 'Snapchat advertising and conversion tracking'
+      },
+
+      // Analytics Services
+      {
+        service: 'Hotjar',
+        type: 'Analytics',
+        domain: 'hotjar.com',
+        domains: ['static.hotjar.com', 'hotjar.com', 'vars.hotjar.com'],
+        riskLevel: 'Medium',
+        description: 'User behavior analytics and heatmaps'
+      },
+      {
+        service: 'Mixpanel',
+        type: 'Analytics',
+        domain: 'mixpanel.com',
+        domains: ['mixpanel.com', 'api.mixpanel.com'],
+        riskLevel: 'Medium',
+        description: 'User analytics and event tracking'
+      },
+      {
+        service: 'Segment',
+        type: 'Analytics',
+        domain: 'segment.com',
+        domains: ['segment.com', 'segment.io', 'api.segment.io'],
+        riskLevel: 'Medium',
+        description: 'Customer data platform and analytics'
+      },
+      {
+        service: 'Amplitude',
+        type: 'Analytics',
+        domain: 'amplitude.com',
+        domains: ['amplitude.com', 'api.amplitude.com'],
+        riskLevel: 'Medium',
+        description: 'Product analytics and user behavior tracking'
+      },
+      {
+        service: 'Heap Analytics',
+        type: 'Analytics',
+        domain: 'heap.io',
+        domains: ['heap.io', 'cdn.heapanalytics.com'],
+        riskLevel: 'Medium',
+        description: 'Automatic event tracking and analytics'
+      },
+      {
+        service: 'Crazy Egg',
+        type: 'Analytics',
+        domain: 'crazyegg.com',
+        domains: ['crazyegg.com', 'script.crazyegg.com'],
+        riskLevel: 'Medium',
+        description: 'Heatmap and user behavior analytics'
+      },
+      {
+        service: 'FullStory',
+        type: 'Analytics',
+        domain: 'fullstory.com',
+        domains: ['fullstory.com', 'rs.fullstory.com'],
+        riskLevel: 'High',
+        description: 'Session replay and user behavior analytics'
+      },
+      {
+        service: 'Mouseflow',
+        type: 'Analytics',
+        domain: 'mouseflow.com',
+        domains: ['mouseflow.com', 'cdn.mouseflow.com'],
+        riskLevel: 'Medium',
+        description: 'User behavior analytics and heatmaps'
+      },
+      {
+        service: 'Lucky Orange',
+        type: 'Analytics',
+        domain: 'luckyorange.com',
+        domains: ['luckyorange.com', 'cdn.luckyorange.com'],
+        riskLevel: 'Medium',
+        description: 'User behavior analytics and heatmaps'
+      },
+      {
+        service: 'Smartlook',
+        type: 'Analytics',
+        domain: 'smartlook.com',
+        domains: ['smartlook.com', 'rec.smartlook.com'],
+        riskLevel: 'Medium',
+        description: 'Session recording and user behavior analytics'
+      },
+      {
+        service: 'Piwik/Matomo',
+        type: 'Analytics',
+        domain: 'matomo.org',
+        domains: ['matomo.org', 'piwik.org'],
+        riskLevel: 'Low',
+        description: 'Privacy-focused web analytics'
+      },
+      {
+        service: 'Plausible Analytics',
+        type: 'Analytics',
+        domain: 'plausible.io',
+        domains: ['plausible.io'],
+        riskLevel: 'Low',
+        description: 'Privacy-focused web analytics'
+      },
+      {
+        service: 'Fathom Analytics',
+        type: 'Analytics',
+        domain: 'usefathom.com',
+        domains: ['usefathom.com'],
+        riskLevel: 'Low',
+        description: 'Privacy-focused web analytics'
+      },
+
+      // Advertising Networks
+      {
+        service: 'Amazon Advertising',
+        type: 'Ads',
+        domain: 'amazon-adsystem.com',
+        domains: ['amazon-adsystem.com', 'aax.amazon-adsystem.com'],
+        riskLevel: 'High',
+        description: 'Amazon advertising network'
+      },
+      {
+        service: 'Criteo',
+        type: 'Ads',
+        domain: 'criteo.com',
+        domains: ['criteo.com', 'static.criteo.net'],
+        riskLevel: 'High',
+        description: 'Retargeting and display advertising'
+      },
+      {
+        service: 'Taboola',
+        type: 'Ads',
+        domain: 'taboola.com',
+        domains: ['taboola.com', 'cdn.taboola.com'],
+        riskLevel: 'High',
+        description: 'Content recommendation and advertising'
+      },
+      {
+        service: 'Outbrain',
+        type: 'Ads',
+        domain: 'outbrain.com',
+        domains: ['outbrain.com', 'cdn.outbrain.com'],
+        riskLevel: 'High',
+        description: 'Content recommendation and advertising'
+      },
+      {
+        service: 'Media.net',
+        type: 'Ads',
+        domain: 'media.net',
+        domains: ['media.net', 'cdn.media.net'],
+        riskLevel: 'High',
+        description: 'Contextual advertising network'
+      },
+      {
+        service: 'AdRoll',
+        type: 'Ads',
+        domain: 'adroll.com',
+        domains: ['adroll.com', 's.adroll.com'],
+        riskLevel: 'High',
+        description: 'Retargeting and display advertising'
+      },
+      {
+        service: 'Perfect Audience',
+        type: 'Ads',
+        domain: 'perfectaudience.com',
+        domains: ['perfectaudience.com'],
+        riskLevel: 'High',
+        description: 'Retargeting and display advertising'
+      },
+      {
+        service: 'Adform',
+        type: 'Ads',
+        domain: 'adform.net',
+        domains: ['adform.net', 'track.adform.net'],
+        riskLevel: 'High',
+        description: 'Digital advertising platform'
+      },
+      {
+        service: 'Sovrn',
+        type: 'Ads',
+        domain: 'sovrn.com',
+        domains: ['sovrn.com', 'ap.lijit.com'],
+        riskLevel: 'High',
+        description: 'Content monetization and advertising'
+      },
+
+      // Data Brokers and Trackers
+      {
+        service: 'Quantcast',
+        type: 'Tracker',
+        domain: 'quantserve.com',
+        domains: ['quantserve.com', 'pixel.quantserve.com'],
+        riskLevel: 'Medium',
+        description: 'Audience measurement and analytics'
+      },
+      {
+        service: 'Scorecard Research',
+        type: 'Tracker',
+        domain: 'scorecardresearch.com',
+        domains: ['scorecardresearch.com', 'b.scorecardresearch.com'],
+        riskLevel: 'Low',
+        description: 'Market research and analytics'
+      },
+      {
+        service: 'Comscore',
+        type: 'Tracker',
+        domain: 'comscore.com',
+        domains: ['comscore.com', 'sb.scorecardresearch.com'],
+        riskLevel: 'Medium',
+        description: 'Digital media analytics and measurement'
+      },
+      {
+        service: 'Nielsen',
+        type: 'Tracker',
+        domain: 'nielsen.com',
+        domains: ['nielsen.com', 'secure-us.imrworldwide.com'],
+        riskLevel: 'Medium',
+        description: 'Media measurement and analytics'
+      },
+      {
+        service: 'Lotame',
+        type: 'Tracker',
+        domain: 'lotame.com',
+        domains: ['lotame.com', 'crwdcntrl.net'],
+        riskLevel: 'High',
+        description: 'Data management platform'
+      },
+      {
+        service: 'LiveRamp',
+        type: 'Tracker',
+        domain: 'liveramp.com',
+        domains: ['liveramp.com', 'idsync.rlcdn.com'],
+        riskLevel: 'High',
+        description: 'Identity resolution and data connectivity'
+      },
+      {
+        service: 'The Trade Desk',
+        type: 'Ads',
+        domain: 'thetradedesk.com',
+        domains: ['thetradedesk.com', 'ads.tdameritrade.com'],
+        riskLevel: 'High',
+        description: 'Programmatic advertising platform'
+      },
+      {
+        service: 'AppNexus',
+        type: 'Ads',
+        domain: 'appnexus.com',
+        domains: ['appnexus.com', 'adnxs.com'],
+        riskLevel: 'High',
+        description: 'Programmatic advertising platform'
+      },
+      {
+        service: 'OpenX',
+        type: 'Ads',
+        domain: 'openx.net',
+        domains: ['openx.net'],
+        riskLevel: 'High',
+        description: 'Programmatic advertising platform'
+      },
+      {
+        service: 'PubMatic',
+        type: 'Ads',
+        domain: 'pubmatic.com',
+        domains: ['pubmatic.com', 'ads.pubmatic.com'],
+        riskLevel: 'High',
+        description: 'Programmatic advertising platform'
+      },
+      {
+        service: 'Rubicon Project',
+        type: 'Ads',
+        domain: 'rubiconproject.com',
+        domains: ['rubiconproject.com', 'fastlane.rubiconproject.com'],
+        riskLevel: 'High',
+        description: 'Programmatic advertising platform'
+      },
+
+      // E-commerce and Conversion Tracking
+      {
+        service: 'Shopify Analytics',
+        type: 'Analytics',
+        domain: 'shopify.com',
+        domains: ['shopify.com', 'cdn.shopify.com'],
+        riskLevel: 'Medium',
+        description: 'E-commerce analytics and tracking'
+      },
+      {
+        service: 'WooCommerce Analytics',
+        type: 'Analytics',
+        domain: 'woocommerce.com',
+        domains: ['woocommerce.com'],
+        riskLevel: 'Medium',
+        description: 'E-commerce analytics and tracking'
+      },
+      {
+        service: 'Klaviyo',
+        type: 'Analytics',
+        domain: 'klaviyo.com',
+        domains: ['klaviyo.com', 'static.klaviyo.com'],
+        riskLevel: 'Medium',
+        description: 'Email marketing and analytics'
+      },
+      {
+        service: 'Mailchimp',
+        type: 'Analytics',
+        domain: 'mailchimp.com',
+        domains: ['mailchimp.com', 'chimpstatic.com'],
+        riskLevel: 'Medium',
+        description: 'Email marketing and analytics'
+      },
+      {
+        service: 'ConvertKit',
+        type: 'Analytics',
+        domain: 'convertkit.com',
+        domains: ['convertkit.com', 'f.convertkit.com'],
+        riskLevel: 'Medium',
+        description: 'Email marketing and analytics'
+      },
+
+      // Customer Support and Chat
+      {
+        service: 'Intercom',
+        type: 'Tracker',
+        domain: 'intercom.io',
+        domains: ['intercom.io', 'widget.intercom.io'],
+        riskLevel: 'Medium',
+        description: 'Customer messaging and support'
+      },
+      {
+        service: 'Drift',
+        type: 'Tracker',
+        domain: 'drift.com',
+        domains: ['drift.com', 'js.driftt.com'],
+        riskLevel: 'Medium',
+        description: 'Conversational marketing and chat'
+      },
+      {
+        service: 'Zendesk',
+        type: 'Tracker',
+        domain: 'zendesk.com',
+        domains: ['zendesk.com', 'static.zdassets.com'],
+        riskLevel: 'Medium',
+        description: 'Customer support and help desk'
+      },
+      {
+        service: 'Freshdesk',
+        type: 'Tracker',
+        domain: 'freshdesk.com',
+        domains: ['freshdesk.com'],
+        riskLevel: 'Medium',
+        description: 'Customer support and help desk'
+      },
+      {
+        service: 'Tawk.to',
+        type: 'Tracker',
+        domain: 'tawk.to',
+        domains: ['tawk.to'],
+        riskLevel: 'Medium',
+        description: 'Live chat and customer support'
+      },
+
+      // CDN and Performance
+      {
+        service: 'Cloudflare',
+        type: 'Other',
+        domain: 'cloudflare.com',
+        domains: ['cloudflare.com', 'cdnjs.cloudflare.com'],
+        riskLevel: 'Low',
+        description: 'CDN and security services'
+      },
+      {
+        service: 'jsDelivr',
+        type: 'Other',
+        domain: 'jsdelivr.net',
+        domains: ['jsdelivr.net', 'cdn.jsdelivr.net'],
+        riskLevel: 'Low',
+        description: 'CDN for JavaScript libraries'
+      },
+      {
+        service: 'unpkg',
+        type: 'Other',
+        domain: 'unpkg.com',
+        domains: ['unpkg.com'],
+        riskLevel: 'Low',
+        description: 'CDN for npm packages'
+      },
+      {
+        service: 'Bootstrap CDN',
+        type: 'Other',
+        domain: 'bootstrapcdn.com',
+        domains: ['bootstrapcdn.com', 'maxcdn.bootstrapcdn.com'],
+        riskLevel: 'Low',
+        description: 'Bootstrap CSS and JS CDN'
+      },
+      {
+        service: 'Optimizely',
+        type: 'Analytics',
+        domain: 'optimizely.com',
+        domains: ['optimizely.com', 'cdn.optimizely.com'],
+        riskLevel: 'Medium',
+        description: 'A/B testing and experimentation platform'
+      },
+      {
+        service: 'Chartbeat',
+        type: 'Analytics',
+        domain: 'chartbeat.com',
+        domains: ['chartbeat.com', 'static.chartbeat.com'],
+        riskLevel: 'Medium',
+        description: 'Real-time analytics and content optimization'
+      },
+      {
+        service: 'Index Exchange',
+        type: 'Ads',
+        domain: 'indexww.com',
+        domains: ['indexww.com', 'js-sec.indexww.com'],
+        riskLevel: 'High',
+        description: 'Programmatic advertising exchange'
+      },
+      {
+        service: 'OneTag',
+        type: 'Ads',
+        domain: 's-onetag.com',
+        domains: ['s-onetag.com', 'get.s-onetag.com'],
+        riskLevel: 'High',
+        description: 'Header bidding and programmatic advertising'
+      },
+      {
+        service: 'AdSafe',
+        type: 'Ads',
+        domain: 'adsafeprotected.com',
+        domains: ['adsafeprotected.com', 'cdn.adsafeprotected.com'],
+        riskLevel: 'Medium',
+        description: 'Ad verification and brand safety'
+      },
+
+      // Security and Monitoring
+      {
+        service: 'Sentry',
+        type: 'Analytics',
+        domain: 'sentry.io',
+        domains: ['sentry.io', 'browser.sentry-cdn.com'],
+        riskLevel: 'Low',
+        description: 'Error monitoring and performance tracking'
+      },
+      {
+        service: 'LogRocket',
+        type: 'Analytics',
+        domain: 'logrocket.com',
+        domains: ['logrocket.com', 'cdn.logrocket.io'],
+        riskLevel: 'Medium',
+        description: 'Session replay and error monitoring'
+      },
+      {
+        service: 'Bugsnag',
+        type: 'Analytics',
+        domain: 'bugsnag.com',
+        domains: ['bugsnag.com', 'd2wy8f7a9ursnm.cloudfront.net'],
+        riskLevel: 'Low',
+        description: 'Error monitoring and crash reporting'
+      },
+
+      // Marketing and Lead Generation
+      {
+        service: 'HubSpot',
+        type: 'Analytics',
+        domain: 'hubspot.com',
+        domains: ['hubspot.com', 'js.hsforms.net', 'track.hubspot.com'],
+        riskLevel: 'Medium',
+        description: 'Marketing automation and analytics'
+      },
+      {
+        service: 'Marketo',
+        type: 'Analytics',
+        domain: 'marketo.com',
+        domains: ['marketo.com', 'munchkin.marketo.net'],
+        riskLevel: 'Medium',
+        description: 'Marketing automation and analytics'
+      },
+      {
+        service: 'Pardot',
+        type: 'Analytics',
+        domain: 'pardot.com',
+        domains: ['pardot.com', 'pi.pardot.com'],
+        riskLevel: 'Medium',
+        description: 'Marketing automation and analytics'
+      },
+      {
+        service: 'Salesforce',
+        type: 'Analytics',
+        domain: 'salesforce.com',
+        domains: ['salesforce.com', 'c.salesforce.com'],
+        riskLevel: 'Medium',
+        description: 'CRM and marketing analytics'
+      },
+
+      // Video and Media
+      {
+        service: 'YouTube',
+        type: 'Other',
+        domain: 'youtube.com',
+        domains: ['youtube.com', 'www.youtube.com', 'youtu.be'],
+        riskLevel: 'Medium',
+        description: 'Video embedding and tracking'
+      },
+      {
+        service: 'Vimeo',
+        type: 'Other',
+        domain: 'vimeo.com',
+        domains: ['vimeo.com', 'player.vimeo.com'],
+        riskLevel: 'Medium',
+        description: 'Video embedding and tracking'
+      },
+      {
+        service: 'Wistia',
+        type: 'Analytics',
+        domain: 'wistia.com',
+        domains: ['wistia.com', 'fast.wistia.com'],
+        riskLevel: 'Medium',
+        description: 'Video hosting and analytics'
+      },
+
+      // Payment Processors
+      {
+        service: 'Stripe',
+        type: 'Other',
+        domain: 'stripe.com',
+        domains: ['stripe.com', 'js.stripe.com'],
+        riskLevel: 'Medium',
+        description: 'Payment processing and fraud detection'
+      },
+      {
+        service: 'PayPal',
+        type: 'Other',
+        domain: 'paypal.com',
+        domains: ['paypal.com', 'www.paypal.com'],
+        riskLevel: 'Medium',
+        description: 'Payment processing and fraud detection'
+      },
+      {
+        service: 'Square',
+        type: 'Other',
+        domain: 'squareup.com',
+        domains: ['squareup.com'],
+        riskLevel: 'Medium',
+        description: 'Payment processing and analytics'
+      },
+
+      // Additional Common Trackers
+      {
+        service: 'Google reCAPTCHA v3',
+        type: 'Tracker',
+        domain: 'recaptcha.net',
+        domains: ['recaptcha.net', 'www.recaptcha.net'],
+        riskLevel: 'Medium',
+        description: 'Google reCAPTCHA bot protection'
+      },
+      {
+        service: 'Cloudflare Analytics',
+        type: 'Analytics',
+        domain: 'cloudflareinsights.com',
+        domains: ['cloudflareinsights.com'],
+        riskLevel: 'Low',
+        description: 'Cloudflare web analytics'
+      },
+      {
+        service: 'Vercel Analytics',
+        type: 'Analytics',
+        domain: 'vercel-insights.com',
+        domains: ['vercel-insights.com'],
+        riskLevel: 'Low',
+        description: 'Vercel web analytics'
+      },
+      {
+        service: 'PostHog',
+        type: 'Analytics',
+        domain: 'posthog.com',
+        domains: ['posthog.com', 'app.posthog.com'],
+        riskLevel: 'Medium',
+        description: 'Product analytics and feature flags'
+      },
+      {
+        service: 'Clerk',
+        type: 'Tracker',
+        domain: 'clerk.com',
+        domains: ['clerk.com', 'clerk.accounts.dev'],
+        riskLevel: 'Medium',
+        description: 'Authentication and user management'
+      },
+      {
+        service: 'Auth0',
+        type: 'Tracker',
+        domain: 'auth0.com',
+        domains: ['auth0.com', 'login.auth0.com'],
+        riskLevel: 'Medium',
+        description: 'Authentication and authorization'
+      },
+      {
+        service: 'Algolia',
+        type: 'Other',
+        domain: 'algolia.net',
+        domains: ['algolia.net', 'cdn.jsdelivr.net'],
+        riskLevel: 'Low',
+        description: 'Search and discovery platform'
+      },
+      {
+        service: 'Disqus',
+        type: 'Tracker',
+        domain: 'disqus.com',
+        domains: ['disqus.com', 'disquscdn.com'],
+        riskLevel: 'Medium',
+        description: 'Comment system and community platform'
+      },
+      {
+        service: 'Gravatar',
+        type: 'Other',
+        domain: 'gravatar.com',
+        domains: ['gravatar.com', 'www.gravatar.com'],
+        riskLevel: 'Low',
+        description: 'Avatar and profile image service'
+      },
+      {
+        service: 'Tawk.to',
+        type: 'Tracker',
+        domain: 'tawk.to',
+        domains: ['tawk.to', 'embed.tawk.to'],
+        riskLevel: 'Medium',
+        description: 'Live chat and customer support'
+      },
+      {
+        service: 'Crisp',
+        type: 'Tracker',
+        domain: 'crisp.chat',
+        domains: ['crisp.chat', 'image.crisp.chat'],
+        riskLevel: 'Medium',
+        description: 'Customer messaging and support'
+      },
+      {
+        service: 'Olark',
+        type: 'Tracker',
+        domain: 'olark.com',
+        domains: ['olark.com', 'static.olark.com'],
+        riskLevel: 'Medium',
+        description: 'Live chat and customer support'
+      },
+      {
+        service: 'Zendesk Chat',
+        type: 'Tracker',
+        domain: 'zopim.com',
+        domains: ['zopim.com', 'v2.zopim.com'],
+        riskLevel: 'Medium',
+        description: 'Zendesk live chat widget'
+      },
+      {
+        service: 'LiveChat',
+        type: 'Tracker',
+        domain: 'livechatinc.com',
+        domains: ['livechatinc.com', 'cdn.livechatinc.com'],
+        riskLevel: 'Medium',
+        description: 'Live chat and customer support'
+      },
+      {
+        service: 'Tidio',
+        type: 'Tracker',
+        domain: 'tidio.co',
+        domains: ['tidio.co', 'code.tidio.co'],
+        riskLevel: 'Medium',
+        description: 'Live chat and chatbot platform'
+      },
+      {
+        service: 'Userlike',
+        type: 'Tracker',
+        domain: 'userlike.com',
+        domains: ['userlike.com', 'cdn.userlike.com'],
+        riskLevel: 'Medium',
+        description: 'Live chat and customer support'
+      }
+    ];
   }
 }

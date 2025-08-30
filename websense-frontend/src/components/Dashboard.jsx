@@ -12,12 +12,12 @@ const Dashboard = () => {
       hoverGlow: "hover:shadow-blue-500/20"
     },
     {
-      icon: <Zap className="w-10 h-10" />,
-      title: "Core Web Vitals",
-      description: "Measure real-world user experience with LCP, FID, and CLS metrics that directly impact your search rankings and user satisfaction",
-      color: "text-amber-500",
-      bgGlow: "from-amber-500/10 to-slate-600/10",
-      hoverGlow: "hover:shadow-amber-500/20"
+      icon: <Shield className="w-10 h-10" />,
+      title: "Privacy & Tracking",
+      description: "Analyze third-party trackers, analytics scripts, and advertising services to understand privacy implications and data collection",
+      color: "text-blue-500",
+      bgGlow: "from-blue-500/10 to-slate-600/10",
+      hoverGlow: "hover:shadow-blue-500/20"
     },
     {
       icon: <Code className="w-10 h-10" />,

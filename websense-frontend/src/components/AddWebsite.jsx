@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { analyzeWebsite, analyzeCoreWebVitals, testWebsiteAccessibility, analyzeTechStack, analyzeSecurityHeaders, analyzeMobileFriendly } from '../services/api';
+import { analyzeWebsite, analyzePrivacyTracking, testWebsiteAccessibility, analyzeTechStack, analyzeSecurityHeaders, analyzeMobileFriendly } from '../services/api';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { Zap, Shield, Code, Smartphone, Eye } from 'lucide-react';
 
 // Import tab components
 import LighthouseTab from './tabs/LighthouseTab';
-import CoreWebVitalsTab from './tabs/CoreWebVitalsTab';
+import PrivacyTrackingTab from './tabs/PrivacyTrackingTab';
 import TechStackTab from './tabs/TechStackTab';
 import SecurityHeadersTab from './tabs/SecurityHeadersTab';
 import MobileFriendlyTab from './tabs/MobileFriendlyTab';
@@ -25,8 +26,8 @@ const AddWebsite = () => {
   const [securityHeadersResult, setSecurityHeadersResult] = useState(null);
   const [isAnalyzingMobileFriendly, setIsAnalyzingMobileFriendly] = useState(false);
   const [mobileFriendlyResult, setMobileFriendlyResult] = useState(null);
-  const [isAnalyzingCoreWebVitals, setIsAnalyzingCoreWebVitals] = useState(false);
-  const [coreWebVitalsResult, setCoreWebVitalsResult] = useState(null);
+  const [isAnalyzingPrivacy, setIsAnalyzingPrivacy] = useState(false);
+  const [privacyResult, setPrivacyResult] = useState(null);
   const reportRef = useRef(null);
 
   // Add CSS reset effect
@@ -174,24 +175,24 @@ const AddWebsite = () => {
     }
   };
 
-  const handleAnalyzeCoreWebVitals = async () => {
+  const handleAnalyzePrivacy = async () => {
     if (!url.trim()) {
       setError('Please enter a valid URL first');
       return;
     }
 
-    setIsAnalyzingCoreWebVitals(true);
+    setIsAnalyzingPrivacy(true);
     setError(null);
-    setCoreWebVitalsResult(null);
+    setPrivacyResult(null);
 
     try {
-      const result = await analyzeCoreWebVitals(url);
-      setCoreWebVitalsResult(result);
+      const result = await analyzePrivacyTracking(url);
+      setPrivacyResult(result);
     } catch (error) {
-      console.error('Core Web Vitals analysis failed:', error);
+      console.error('Privacy tracking analysis failed:', error);
       setError(error.message);
     } finally {
-      setIsAnalyzingCoreWebVitals(false);
+      setIsAnalyzingPrivacy(false);
     }
   };
 
@@ -209,9 +210,9 @@ const AddWebsite = () => {
       case 'lighthouse':
         // Lighthouse analysis is already handled by the main form submit
         break;
-      case 'corewebvitals':
-        if (!coreWebVitalsResult) {
-          await handleAnalyzeCoreWebVitals();
+      case 'privacy':
+        if (!privacyResult) {
+          await handleAnalyzePrivacy();
         }
         break;
       case 'techstack':
@@ -279,10 +280,21 @@ const AddWebsite = () => {
       padding: 0
     }}>
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-4xl md:text-5xl font-bold mb-8 text-center bg-gradient-to-r from-slate-100 via-blue-100 to-slate-100 bg-clip-text text-transparent">
-          WEBSENSE
-        </h1>
-        <p className="text-center text-slate-400 mb-8 text-lg">Professional Website Analysis & Intelligence</p>
+        <div className="flex items-center justify-center mb-8">
+          <div className="relative">
+            <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-slate-600 rounded-3xl flex items-center justify-center shadow-xl shadow-blue-500/30 mr-6 overflow-hidden">
+              <img 
+                src="/image.png" 
+                alt="WebSense Logo" 
+                className="w-14 h-14 object-cover rounded-2xl"
+              />
+            </div>
+          </div>
+          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-slate-100 via-blue-100 to-slate-100 bg-clip-text text-transparent">
+            WEBSENSE
+          </h1>
+        </div>
+        <p className="text-center text-slate-400 mb-12 text-xl">Professional Website Analysis & Intelligence</p>
         
         {!report ? (
           <div className="max-w-2xl mx-auto">
@@ -354,6 +366,175 @@ const AddWebsite = () => {
                   </div>
                 </form>
                 
+                {/* Analysis Type Cards */}
+                <div className="mt-20">
+                  <h3 className="text-4xl font-bold text-slate-100 mb-16 text-center">What Data Can You Get?</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16">
+                    
+                    {/* Lighthouse Card */}
+                    <div className="p-12 rounded-3xl border-2 border-slate-600/40 hover:border-slate-500/60 transition-all duration-300 hover:shadow-2xl hover:shadow-slate-900/40 hover:scale-105">
+                      <div className="flex items-center gap-6 mb-10">
+                        <div className="p-6 bg-yellow-500/20 rounded-2xl border-2 border-yellow-500/40">
+                          <Zap className="w-12 h-12 text-yellow-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-3xl font-bold text-slate-100">Lighthouse Analysis</h4>
+                          <p className="text-slate-400 text-xl">Performance & SEO metrics</p>
+                        </div>
+                      </div>
+                      <div className="space-y-5 text-slate-300 text-xl">
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-green-400 rounded-full"></div>
+                          <span>Performance scores</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-blue-400 rounded-full"></div>
+                          <span>SEO optimization</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-purple-400 rounded-full"></div>
+                          <span>Accessibility checks</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Privacy & Tracking Card */}
+                    <div className="p-12 rounded-3xl border-2 border-slate-600/40 hover:border-slate-500/60 transition-all duration-300 hover:shadow-2xl hover:shadow-slate-900/40 hover:scale-105">
+                      <div className="flex items-center gap-6 mb-10">
+                        <div className="p-6 bg-green-500/20 rounded-2xl border-2 border-green-500/40">
+                          <Shield className="w-12 h-12 text-green-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-3xl font-bold text-slate-100">Privacy & Tracking</h4>
+                          <p className="text-slate-400 text-xl">Third-party analysis</p>
+                        </div>
+                      </div>
+                      <div className="space-y-5 text-slate-300 text-xl">
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-red-400 rounded-full"></div>
+                          <span>Tracker detection</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-orange-400 rounded-full"></div>
+                          <span>Ad services</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-blue-400 rounded-full"></div>
+                          <span>Analytics scripts</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Tech Stack Card */}
+                    <div className="p-12 rounded-3xl border-2 border-slate-600/40 hover:border-slate-500/60 transition-all duration-300 hover:shadow-2xl hover:shadow-slate-900/40 hover:scale-105">
+                      <div className="flex items-center gap-6 mb-10">
+                        <div className="p-6 bg-blue-500/20 rounded-2xl border-2 border-blue-500/40">
+                          <Code className="w-12 h-12 text-blue-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-3xl font-bold text-slate-100">Tech Stack</h4>
+                          <p className="text-slate-400 text-xl">Technologies used</p>
+                        </div>
+                      </div>
+                      <div className="space-y-5 text-slate-300 text-xl">
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-cyan-400 rounded-full"></div>
+                          <span>Frameworks</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-indigo-400 rounded-full"></div>
+                          <span>Libraries</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-purple-400 rounded-full"></div>
+                          <span>Hosting platforms</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Security Headers Card */}
+                    <div className="p-12 rounded-3xl border-2 border-slate-600/40 hover:border-slate-500/60 transition-all duration-300 hover:shadow-2xl hover:shadow-slate-900/40 hover:scale-105">
+                      <div className="flex items-center gap-6 mb-10">
+                        <div className="p-6 bg-red-500/20 rounded-2xl border-2 border-red-500/40">
+                          <Shield className="w-12 h-12 text-red-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-3xl font-bold text-slate-100">Security Headers</h4>
+                          <p className="text-slate-400 text-xl">Security analysis</p>
+                        </div>
+                      </div>
+                      <div className="space-y-5 text-slate-300 text-xl">
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-green-400 rounded-full"></div>
+                          <span>Header security</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-yellow-400 rounded-full"></div>
+                          <span>Vulnerability checks</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-red-400 rounded-full"></div>
+                          <span>Security score</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Mobile Friendly Card */}
+                    <div className="p-12 rounded-3xl border-2 border-slate-600/40 hover:border-slate-500/60 transition-all duration-300 hover:shadow-2xl hover:shadow-slate-900/40 hover:scale-105">
+                      <div className="flex items-center gap-6 mb-10">
+                        <div className="p-6 bg-green-500/20 rounded-2xl border-2 border-green-500/40">
+                          <Smartphone className="w-12 h-12 text-green-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-3xl font-bold text-slate-100">Mobile Friendly</h4>
+                          <p className="text-slate-400 text-xl">Mobile optimization</p>
+                        </div>
+                      </div>
+                      <div className="space-y-5 text-slate-300 text-xl">
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-green-400 rounded-full"></div>
+                          <span>Responsive design</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-blue-400 rounded-full"></div>
+                          <span>Touch optimization</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-purple-400 rounded-full"></div>
+                          <span>Mobile performance</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Accessibility Card */}
+                    <div className="p-12 rounded-3xl border-2 border-slate-600/40 hover:border-slate-500/60 transition-all duration-300 hover:shadow-2xl hover:shadow-slate-900/40 hover:scale-105">
+                      <div className="flex items-center gap-6 mb-10">
+                        <div className="p-6 bg-purple-500/20 rounded-2xl border-2 border-purple-500/40">
+                          <Eye className="w-12 h-12 text-purple-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-3xl font-bold text-slate-100">Accessibility</h4>
+                          <p className="text-slate-400 text-xl">WCAG compliance</p>
+                        </div>
+                      </div>
+                      <div className="space-y-5 text-slate-300 text-xl">
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-green-400 rounded-full"></div>
+                          <span>Screen reader support</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-blue-400 rounded-full"></div>
+                          <span>Keyboard navigation</span>
+                        </div>
+                        <div className="flex items-center gap-5">
+                          <div className="w-5 h-5 bg-purple-400 rounded-full"></div>
+                          <span>Color contrast</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
                 {error && (
                   <div className="mt-6 bg-red-950/50 border border-red-800/50 text-red-200 px-6 py-4 rounded-xl backdrop-blur-sm">
                     <p className="font-semibold">Analysis Error:</p>
@@ -398,24 +579,24 @@ const AddWebsite = () => {
   }`}></div>
 </button>
 
-{/* Core Web Vitals Tab */}
+      {/* Privacy & Tracking Tab */}
 <button
-  onClick={() => handleTabChange('corewebvitals')}
+  onClick={() => handleTabChange('privacy')}
   className={`group relative flex-1 px-6 py-4 rounded-xl font-semibold text-sm uppercase tracking-wide transition-all duration-300 transform ${
-    activeTab === 'corewebvitals'
+    activeTab === 'privacy'
       ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25 scale-105'
       : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white hover:scale-102'
   }`}
 >
   <div className="flex items-center justify-center gap-2">
     <div className={`w-2 h-2 rounded-full ${
-      activeTab === 'corewebvitals' ? 'bg-white' : 'bg-slate-500'
+      activeTab === 'privacy' ? 'bg-white' : 'bg-slate-500'
     }`}></div>
-    Core Web Vitals
+    Privacy & Tracking
   </div>
   
   <div className={`absolute inset-0 bg-orange-500/20 rounded-xl transition-opacity duration-200 ${
-    activeTab === 'corewebvitals' ? 'opacity-100 animate-pulse' : 'opacity-0'
+    activeTab === 'privacy' ? 'opacity-100 animate-pulse' : 'opacity-0'
   }`}></div>
 </button>
 
@@ -493,12 +674,12 @@ const AddWebsite = () => {
                   />
                 )}
                 
-                {/* Core Web Vitals Tab */}
-                {activeTab === 'corewebvitals' && (
-                  <CoreWebVitalsTab 
-                    isAnalyzingCoreWebVitals={isAnalyzingCoreWebVitals} 
-                    coreWebVitalsResult={coreWebVitalsResult} 
-                    handleAnalyzeCoreWebVitals={handleAnalyzeCoreWebVitals}
+                {/* Privacy & Tracking Tab */}
+                {activeTab === 'privacy' && (
+                  <PrivacyTrackingTab 
+                    isAnalyzingPrivacy={isAnalyzingPrivacy} 
+                    privacyResult={privacyResult} 
+                    handleAnalyzePrivacy={handleAnalyzePrivacy}
                   />
                 )}
                 

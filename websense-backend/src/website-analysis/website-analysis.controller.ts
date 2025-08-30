@@ -95,14 +95,16 @@ export class WebsiteAnalysisController {
     return this.service.analyzeMobileFriendly('https://www.google.com');
   }
 
-  @Post('core-web-vitals')
-  async analyzeCoreWebVitals(@Body() data: { url: string }) {
-    return this.service.analyzeCoreWebVitals(data.url);
+
+
+  @Post('privacy-tracking')
+  async analyzePrivacyTracking(@Body() data: { url: string }) {
+    return this.service.analyzePrivacyTracking(data.url);
   }
 
-  @Get('test-core-web-vitals')
-  async testCoreWebVitals() {
+  @Get('test-privacy-tracking')
+  async testPrivacyTracking() {
     // Test with a simple, reliable website
-    return this.service.analyzeCoreWebVitals('https://www.google.com');
+    return this.service.analyzePrivacyTracking('https://www.google.com');
   }
 }

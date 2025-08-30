@@ -5,7 +5,6 @@ import {
   Sparkles, 
   Monitor, 
   Smartphone, 
-  Tablet, 
   AlertTriangle, 
   CheckCircle, 
   Eye, 
@@ -119,6 +118,124 @@ const LighthouseTab = ({ report }) => {
       <span className="text-slate-100 font-bold">{value}</span>
     </div>
   );
+
+  // Pie Chart Component
+  const PieChartComponent = ({ data, title, colors = ['#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#8B5CF6'] }) => {
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+    
+    // Handle empty data case
+    if (total === 0 || data.length === 0) {
+      return (
+        <div className="p-6 bg-slate-800/20 rounded-xl border border-slate-700/30">
+          <h4 className="text-lg font-bold text-slate-100 mb-4 text-center">{title}</h4>
+          <div className="flex items-center justify-center mb-4">
+            <div className="w-32 h-32 bg-slate-700/30 rounded-full flex items-center justify-center">
+              <span className="text-slate-400 text-sm">No data</span>
+            </div>
+          </div>
+          <div className="text-center text-slate-400 text-sm">No data available for this chart</div>
+        </div>
+      );
+    }
+    
+    let currentAngle = 0;
+    
+    return (
+      <div className="p-6 bg-slate-800/20 rounded-xl border border-slate-700/30">
+        <h4 className="text-lg font-bold text-slate-100 mb-4 text-center">{title}</h4>
+        <div className="flex items-center justify-center mb-4">
+          <svg width="200" height="200" className="transform -rotate-90">
+            {data.map((item, index) => {
+              const percentage = (item.value / total) * 100;
+              const angle = (percentage / 100) * 360;
+              const x1 = 100 + 80 * Math.cos(currentAngle * Math.PI / 180);
+              const y1 = 100 + 80 * Math.sin(currentAngle * Math.PI / 180);
+              const x2 = 100 + 80 * Math.cos((currentAngle + angle) * Math.PI / 180);
+              const y2 = 100 + 80 * Math.sin((currentAngle + angle) * Math.PI / 180);
+              
+              const largeArcFlag = angle > 180 ? 1 : 0;
+              const pathData = [
+                `M 100 100`,
+                `L ${x1} ${y1}`,
+                `A 80 80 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+                'Z'
+              ].join(' ');
+              
+              const currentColor = colors[index % colors.length];
+              currentAngle += angle;
+              
+              return (
+                <path
+                  key={index}
+                  d={pathData}
+                  fill={currentColor}
+                  stroke="#1e293b"
+                  strokeWidth="2"
+                />
+              );
+            })}
+          </svg>
+        </div>
+        <div className="space-y-2">
+          {data.map((item, index) => (
+            <div key={index} className="flex items-center gap-2 text-sm">
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: colors[index % colors.length] }}
+              ></div>
+              <span className="text-slate-300">{item.label}:</span>
+              <span className="text-slate-100 font-medium">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Bar Chart Component
+  const BarChartComponent = ({ data, title, colors = ['#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#8B5CF6'] }) => {
+    // Handle empty data case
+    if (!data || data.length === 0) {
+      return (
+        <div className="p-6 bg-slate-800/20 rounded-xl border border-slate-700/30">
+          <h4 className="text-lg font-bold text-slate-100 mb-4 text-center">{title}</h4>
+          <div className="text-center text-slate-400 text-sm py-8">No data available for this chart</div>
+        </div>
+      );
+    }
+    
+    const maxValue = Math.max(...data.map(item => item.value));
+    
+    return (
+      <div className="p-6 bg-slate-800/20 rounded-xl border border-slate-700/30">
+        <h4 className="text-lg font-bold text-slate-100 mb-4 text-center">{title}</h4>
+        <div className="space-y-3">
+          {data.map((item, index) => {
+            const percentage = (item.value / maxValue) * 100;
+            const currentColor = colors[index % colors.length];
+            
+            return (
+              <div key={index} className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-300">{item.label}</span>
+                  <span className="text-slate-100 font-medium">{item.value}</span>
+                </div>
+                <div className="w-full bg-slate-700/30 rounded-full h-3">
+                  <div
+                    className="h-3 rounded-full transition-all duration-1000"
+                    style={{
+                      width: `${percentage}%`,
+                      backgroundColor: currentColor
+                    }}
+                  ></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   const renderScreenshots = () => {
     if (!report.performance.screenshots || report.performance.screenshots.length === 0) {
@@ -403,9 +520,18 @@ const LighthouseTab = ({ report }) => {
           <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 via-transparent to-transparent"></div>
           <div className="relative">
             <div className="flex items-center gap-4 mb-6">
-              <div className="p-4 bg-orange-500/10 rounded-xl border border-orange-500/20">
-                <Gauge className="w-8 h-8 text-orange-400" />
-              </div>
+                      <div className="flex items-center gap-4">
+          <div className="w-14 h-14 bg-gradient-to-r from-orange-500 to-slate-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/25 overflow-hidden">
+            <img 
+              src="/image.png" 
+              alt="WebSense Logo" 
+              className="w-9 h-9 object-cover rounded-xl"
+            />
+          </div>
+          <div className="p-4 bg-orange-500/10 rounded-xl border border-orange-500/20">
+            <Gauge className="w-8 h-8 text-orange-400" />
+          </div>
+        </div>
               <div>
                 <h4 className="text-3xl font-bold text-slate-100 mb-2">Lighthouse Performance Audit</h4>
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-950/50 rounded-full border border-orange-700/30">
@@ -467,6 +593,95 @@ const LighthouseTab = ({ report }) => {
 
         {/* Performance Metrics */}
         {!report.performance.error && report.performance.firstContentfulPaint && renderMetricsSection()}
+
+        {/* Data Visualizations */}
+        {!report.performance.error && (
+          <div className="space-y-8">
+            <div className="text-center mb-8">
+              <h3 className="text-2xl font-bold text-slate-100 mb-2">Performance Insights</h3>
+              <p className="text-slate-400">Visual representation of your website's performance data</p>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Performance Scores Pie Chart */}
+              <PieChartComponent
+                title="Performance Scores Distribution"
+                data={[
+                  { label: 'Performance', value: report.performance.categories?.performance || report.performance.score || 0 },
+                  { label: 'Accessibility', value: report.performance.categories?.accessibility || 0 },
+                  { label: 'Best Practices', value: report.performance.categories?.['best-practices'] || 0 },
+                  { label: 'SEO', value: report.performance.categories?.seo || 0 },
+                  { label: 'PWA', value: report.performance.categories?.pwa || 0 }
+                ].filter(item => item.value > 0)}
+                colors={['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444']}
+              />
+              
+              {/* Resource Distribution Bar Chart */}
+              <BarChartComponent
+                title="Resource Distribution"
+                data={[
+                  { label: 'Images', value: report.performance.resources?.imageCount || 0 },
+                  { label: 'Scripts', value: report.performance.resources?.scriptCount || 0 },
+                  { label: 'Stylesheets', value: report.performance.resources?.stylesheetCount || 0 },
+                  { label: 'Fonts', value: report.performance.resources?.fontCount || 0 }
+                ].filter(item => item.value > 0)}
+                colors={['#8B5CF6', '#F59E0B', '#EF4444', '#06B6D4']}
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Performance Metrics Bar Chart */}
+              <BarChartComponent
+                title="Performance Metrics (ms)"
+                data={[
+                  { label: 'First Contentful Paint', value: Math.round((report.performance.firstContentfulPaint || 0) / 1000) },
+                  { label: 'Largest Contentful Paint', value: Math.round((report.performance.largestContentfulPaint || 0) / 1000) },
+                  { label: 'First Input Delay', value: Math.round((report.performance.firstInputDelay || 0) / 1000) },
+                  { label: 'Cumulative Layout Shift', value: Math.round((report.performance.cumulativeLayoutShift || 0) * 1000) / 1000 }
+                ].filter(item => item.value > 0)}
+                colors={['#10B981', '#3B82F6', '#F59E0B', '#EF4444']}
+              />
+              
+              {/* Optimization Opportunities Pie Chart */}
+              <PieChartComponent
+                title="Optimization Impact"
+                data={[
+                  { label: 'Unused CSS', value: report.performance.unusedCSS ? 1 : 0 },
+                  { label: 'Unused JavaScript', value: report.performance.unusedJavaScript ? 1 : 0 },
+                  { label: 'Image Optimization', value: report.performance.imageOptimization ? 1 : 0 },
+                  { label: 'Modern Formats', value: report.performance.modernImageFormats ? 1 : 0 }
+                ].filter(item => item.value > 0)}
+                colors={['#EF4444', '#F59E0B', '#3B82F6', '#10B981']}
+              />
+            </div>
+            
+            {/* Additional Charts Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Score Distribution Pie Chart */}
+              <PieChartComponent
+                title="Score Categories Distribution"
+                data={[
+                  { label: 'High (90-100)', value: Object.values(report.performance.categories || {}).filter(score => score >= 90).length },
+                  { label: 'Medium (70-89)', value: Object.values(report.performance.categories || {}).filter(score => score >= 70 && score < 90).length },
+                  { label: 'Low (0-69)', value: Object.values(report.performance.categories || {}).filter(score => score < 70).length }
+                ].filter(item => item.value > 0)}
+                colors={['#10B981', '#F59E0B', '#EF4444']}
+              />
+              
+              {/* Resource Types Bar Chart */}
+              <BarChartComponent
+                title="Resource Types Analysis"
+                data={[
+                  { label: 'Total Resources', value: (report.performance.resources?.imageCount || 0) + (report.performance.resources?.scriptCount || 0) + (report.performance.resources?.stylesheetCount || 0) + (report.performance.resources?.fontCount || 0) },
+                  { label: 'External Resources', value: report.performance.externalResources || 0 },
+                  { label: 'Inline Resources', value: report.performance.inlineResources || 0 },
+                  { label: 'CDN Resources', value: report.performance.cdnResources || 0 }
+                ].filter(item => item.value > 0)}
+                colors={['#8B5CF6', '#F59E0B', '#06B6D4', '#10B981']}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Screenshots */}
         {!report.performance.error && renderScreenshots()}

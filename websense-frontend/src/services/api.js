@@ -64,12 +64,12 @@ export const analyzeWebsite = async (url) => {
   }
 };
 
-// Core Web Vitals (CrUX) analysis - Real user metrics from Chrome UX Report
-export const analyzeCoreWebVitals = async (url) => {
+// Privacy & Tracking Analysis
+export const analyzePrivacyTracking = async (url) => {
   try {
-    console.log(`Analyzing Core Web Vitals for: ${url}`);
+    console.log(`Analyzing privacy and tracking for: ${url}`);
     
-    const response = await fetch(`${API_URL}/api/analyze/core-web-vitals`, {
+    const response = await fetch(`${API_URL}/api/analyze/privacy-tracking`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -82,23 +82,23 @@ export const analyzeCoreWebVitals = async (url) => {
       if (errorData && errorData.message) {
         throw new Error(errorData.message);
       } else if (response.status === 404) {
-        throw new Error('Core Web Vitals API endpoint not found. The server may be misconfigured.');
+        throw new Error('Privacy tracking API endpoint not found. The server may be misconfigured.');
       } else if (response.status === 400) {
         throw new Error('Invalid URL format. Please enter a valid website URL.');
       } else if (response.status === 429) {
         throw new Error('Too many requests. Please try again later.');
       } else if (response.status >= 500) {
-        throw new Error('Server error. The Core Web Vitals analysis service is currently unavailable.');
+        throw new Error('Server error. The privacy tracking analysis service is currently unavailable.');
       } else {
         throw new Error(`Request failed with status: ${response.status}`);
       }
     }
     
     const data = await response.json();
-    console.log('Core Web Vitals analysis complete:', data);
+    console.log('Privacy tracking analysis complete:', data);
     return data;
   } catch (error) {
-    console.error('Error analyzing Core Web Vitals:', error);
+    console.error('Error analyzing privacy and tracking:', error);
     throw error;
   }
 };
